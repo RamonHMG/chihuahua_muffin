@@ -34,6 +34,9 @@ local_use_only = true
 redistribution_allowed = false
 
 [dataset.preferred_split]
+# Política genérica de fallback para fontes sem partições utilizáveis.
+# Na versão 2, train/test originais são preservados; eventual validação de ~15%
+# de train depende dos Incrementos 6 e 7 e ainda não foi criada.
 train = 0.70
 validation = 0.15
 test = 0.15

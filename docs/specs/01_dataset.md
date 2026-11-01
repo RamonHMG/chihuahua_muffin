@@ -253,6 +253,41 @@ manifesto final permanecem fora deste incremento.
 - **DATA-018:** metodologia, algoritmo, parâmetros, critérios, grupos,
   exclusões e revisões devem constar no relatório.
 
+#### Deduplicação exata implementada no Incremento 5
+
+- somente imagens aceitas, com formato decodificado e SHA-256 não vazio,
+  participam da análise exata;
+- grupos usam o identificador determinístico `exact-sha256:<hash>` e são
+  ordenados pelo hash; nomes diferentes não alteram a identidade do conteúdo;
+- em grupos com o mesmo rótulo, uma ocorrência é preservada e as demais recebem
+  exclusão lógica, sem remoção física. A escolha prioriza `test`, depois
+  `train`, `validation`, partição ausente e, por fim, caminho relativo e
+  `sample_id`;
+- em duplicatas entre `train` e `test` com o mesmo rótulo, a ocorrência de
+  `test` é preservada e a de `train` é excluída logicamente com motivo explícito;
+- grupos com rótulos conflitantes não alteram nenhum rótulo automaticamente:
+  todas as ocorrências ficam bloqueadas até uma decisão humana compatível;
+- cada ocorrência recebe uma ação lógica `keep`, `exclude` ou `block`, com
+  justificativa. Os arquivos, diretórios e partições originais não são
+  modificados;
+- uma decisão `not_duplicate` para arquivos com SHA-256 idêntico é registrada,
+  mas permanece bloqueante por contradizer a evidência byte a byte.
+
+#### Registro de revisão humana
+
+O artefato local `human_decisions.json` usa JSON canônico e contém, para cada
+decisão: `review_id`, IDs-alvo, tipo de ocorrência, estado, justificativa,
+revisor, data e listas separadas de amostras preservadas e excluídas. Os estados
+permitidos são `confirmed_duplicate`, `not_duplicate` e `uncertain`.
+
+A confirmação da duplicação e o destino das amostras são decisões separadas.
+Em especial, um conflito de rótulos marcado `confirmed_duplicate` sem uma
+disposição completa continua bloqueante. Uma disposição resolvida deve cobrir
+todos os IDs, preservar exatamente um e excluir logicamente os demais.
+`uncertain` não pode conter disposição; `not_duplicate` deve preservar todos,
+mas não libera um grupo de SHA-256 idêntico. Decisões com IDs, tipo, versão do
+dataset ou esquema divergentes são rejeitadas.
+
 ### Protocolo proposto para duplicatas perceptuais
 
 Esta proposta orientará a auditoria, mas **não está aprovada para deduplicação
@@ -298,6 +333,50 @@ entre splits, não remover exemplos difíceis.
 - **DATA-026:** conflitos que não possam ser resolvidos com segurança exigem
   revisão humana.
 
+Para a versão 2 deste dataset foi decidido preservar as partições originais
+`train` e `test`. Elas não serão reconstruídas para buscar as proporções
+preferenciais. Se uma validação confiável for aprovada, ela será extraída
+exclusivamente de `train`, com aproximadamente 15% dessa partição, seed 42,
+estratificação por classe e indivisibilidade dos grupos da mesma fotografia.
+
+A decisão entre os cenários abaixo permanece pendente até concluir as auditorias
+exata e perceptual:
+
+- **Cenário A:** criar validação somente a partir de `train`, preservando `test`;
+- **Cenário B:** manter apenas `train` e `test`, sem usar o teste para seleção ou
+  repetição oportunista de experimentos.
+
+O Incremento 5 não cria splits. A implementação de eventual validação pertence
+somente ao Incremento 7, após decisão humana baseada também no Incremento 6.
+
+### Resultado da deduplicação exata e viabilidade preliminar
+
+A análise SHA-256 do Incremento 5 produziu zero grupos duplicados, zero conflitos
+de rótulo, zero ocorrências entre `train` e `test`, zero exclusões lógicas e zero
+bloqueios. Permanecem elegíveis nesta etapa:
+
+| Partição original | Chihuahua | Muffin | Total |
+|---|---:|---:|---:|
+| `train` | 2.559 | 2.174 | 4.733 |
+| `test` | 640 | 544 | 1.184 |
+
+Uma estimativa aritmética de 15% de cada classe de `train` corresponderia a 384
+chihuahuas e 326 muffins, total de 710 imagens, deixando aproximadamente 2.175 e
+1.848 para treinamento. Esses números não atribuem amostras e não constituem um
+split. A análise exata não identificou impedimento quantitativo preliminar, mas
+não demonstra independência entre as partições: versões comprimidas,
+redimensionadas ou alteradas da mesma fotografia exigem a auditoria perceptual
+do Incremento 6. A decisão A/B continua explicitamente adiada.
+
+Artefatos locais não finais em `data/audit/kaggle-2733586-v2-exact/`:
+
+- `exact_deduplication.json`, SHA-256
+  `cc9eebf742ad0d7069a24d1a7eeaef6f5610b1e01516cee7756270553bc62ad6`;
+- `human_decisions.json`, atualmente sem decisões, SHA-256
+  `aaa627f05b4907a0679fa1cd5e09f79b986841060ce329fccf2eb9d813494dce`;
+- `validation_feasibility.json`, SHA-256
+  `e53bcedb6cc313f4b33f9c912788f770b34ffe56149513267c2f09f91a4593e3`.
+
 ### Pré-processamento
 
 - **DATA-027:** a entrada lógica deve ser RGB `128 × 128 × 3`.
@@ -336,10 +415,12 @@ permanece responsabilidade futura da SPEC 02.
 2. Inventariar arquivos, corrigir metadados para leitura e calcular hashes.
 3. Formar candidatos a grupos de duplicatas e resolver revisões necessárias.
 4. Verificar vazamento nas partições oficiais.
-5. Preservar partições oficiais válidas conforme DATA-020 e DATA-021.
-6. Caso não existam partições utilizáveis, aplicar 70%/15%/15%, seed 42, com
-   estratificação por classe e indivisibilidade dos grupos.
-7. Registrar proporções desejadas, efetivas e sua justificativa.
+5. Preservar as partições originais `train` e `test` desta versão.
+6. Após a auditoria perceptual, decidir humanamente entre Cenário A e B.
+7. Somente no Incremento 7, se o Cenário A for aprovado, extrair aproximadamente
+   15% de `train` para validação, com seed 42, estratificação por classe e
+   indivisibilidade dos grupos; se o Cenário B for aprovado, não criar validação.
+8. Registrar proporções efetivas, grupos, decisões e justificativa.
 
 ## Contrato de dados
 
@@ -350,9 +431,9 @@ Artefatos futuros previstos:
   resumo do dataset preparado;
 - `data/prepared/quality_report.json`: ocorrências e decisões de qualidade.
 
-Os artefatos finais acima ainda não existem. O Incremento 4 pode gerar, sob
-`data/`, somente artefatos de auditoria inicial claramente identificados como
-não finais.
+Os artefatos finais acima ainda não existem. Os Incrementos 4 e 5 podem gerar,
+sob `data/`, somente artefatos de auditoria claramente identificados como não
+finais.
 
 ### Campos mínimos do índice
 
@@ -468,6 +549,7 @@ evidência independente de duplicação.
 - validação definitiva das partições reais contra duplicatas perceptuais e
   vazamento;
 - algoritmo perceptual, parâmetros, limiar conservador e protocolo de revisão;
+- decisão definitiva entre Cenário A e B após a auditoria perceptual;
 - decisão futura sobre publicação ou versionamento dos manifestos locais.
 
 ## Registro de decisões
@@ -516,3 +598,15 @@ evidência independente de duplicação.
 - **2026-11-01:** a versão 2 foi adquirida localmente e revelou 5.917 JPEGs nas
   partições `train` e `test`, além de um marcador KaggleHub não-imagem; a
   auditoria inicial não encontrou corrupção, animações ou SHA-256 repetidos.
+- **2026-11-01:** as partições originais `train` e `test` serão preservadas; uma
+  eventual validação conterá aproximadamente 15% somente de `train` e será
+  implementada apenas no Incremento 7, caso aprovada após a auditoria perceptual.
+- **2026-11-01:** deduplicação exata usa grupos SHA-256 determinísticos, prefere
+  a ocorrência de `test` em grupos de mesmo rótulo entre partições, mantém
+  conflitos de rótulo bloqueados e nunca remove originais fisicamente.
+- **2026-11-01:** decisões humanas distinguem conclusão sobre duplicação de
+  disposição das amostras e usam os estados `confirmed_duplicate`,
+  `not_duplicate` e `uncertain` em JSON canônico local.
+- **2026-11-01:** a auditoria exata real encontrou zero grupos e não impõe
+  obstáculo quantitativo preliminar à validação candidata, mas a decisão entre
+  os Cenários A e B permanece adiada até a análise perceptual.

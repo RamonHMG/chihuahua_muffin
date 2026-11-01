@@ -15,6 +15,17 @@ from .canonical import (
     sha256_hex,
 )
 from .config import DEFAULT_CONFIG_PATH, ConfigError, ValidationMode, load_config
+from .deduplication import (
+    DeduplicationError,
+    ExactDeduplicationResult,
+    ExactDuplicateGroup,
+    ExactOccurrenceType,
+    SampleAction,
+    ValidationFeasibilityAssessment,
+    analyze_exact_duplicates,
+    assess_validation_feasibility,
+    write_exact_audit,
+)
 from .inventory import (
     AuditStatus,
     ExactDuplicateCandidate,
@@ -36,6 +47,15 @@ from .provenance import (
     provenance_from_config,
 )
 from .records import ProjectConfig
+from .review import (
+    HumanReviewDecision,
+    ReviewDecisionState,
+    ReviewError,
+    ReviewOccurrenceType,
+    canonical_human_decisions_bytes,
+    human_decisions_payload,
+    load_human_decisions,
+)
 
 __all__ = [
     "AcquisitionError",
@@ -45,10 +65,15 @@ __all__ = [
     "CanonicalizationError",
     "DEFAULT_CONFIG_PATH",
     "ConfigError",
+    "DeduplicationError",
     "IdentifierError",
     "DatasetProvenance",
     "EvidenceStatus",
     "ExactDuplicateCandidate",
+    "ExactDeduplicationResult",
+    "ExactDuplicateGroup",
+    "ExactOccurrenceType",
+    "HumanReviewDecision",
     "HumanUseAuthorization",
     "InventoryError",
     "InventoryRecord",
@@ -59,14 +84,24 @@ __all__ = [
     "PreprocessedImage",
     "PreprocessingError",
     "ProvenanceError",
+    "ReviewDecisionState",
+    "ReviewError",
+    "ReviewOccurrenceType",
+    "SampleAction",
+    "ValidationFeasibilityAssessment",
     "ValidationMode",
     "canonical_index_csv_bytes",
     "canonical_index_csv_sha256",
     "canonical_json_bytes",
     "canonical_json_sha256",
+    "canonical_human_decisions_bytes",
     "authorization_from_config",
+    "analyze_exact_duplicates",
+    "assess_validation_feasibility",
+    "human_decisions_payload",
     "inventory_dataset",
     "load_config",
+    "load_human_decisions",
     "make_sample_id",
     "manifest_sha256",
     "normalize_relative_path",
@@ -75,4 +110,5 @@ __all__ = [
     "sha256_file",
     "sha256_hex",
     "write_initial_audit",
+    "write_exact_audit",
 ]

@@ -5,14 +5,15 @@ de chihuahuas e muffins com TensorFlow/Keras.
 
 ## Estado atual
 
-Os **Incrementos 1, 2, 3 e 4 da SPEC 01** implementam a estrutura mínima do pacote, o
+Os **Incrementos 1 a 5 da SPEC 01** implementam a estrutura mínima do pacote, o
 carregamento e a validação estrutural de `config/example.toml`, serialização
 JSON/CSV canônica, digests SHA-256, `sample_id` determinístico, proveniência e
 um adaptador KaggleHub testável sem rede. O Incremento 4 acrescenta inventário
 determinístico, relatório inicial de qualidade e uma referência Pillow do
-contrato de pré-processamento. Deduplicação definitiva, particionamento,
-manifestos finais, pipeline `tf.data`, modelo e treinamento continuam não
-implementados.
+contrato de pré-processamento. O Incremento 5 acrescenta deduplicação exata
+não destrutiva, decisões humanas canônicas e análise preliminar de validação.
+Deduplicação perceptual, particionamento, manifestos finais, pipeline `tf.data`,
+modelo e treinamento continuam não implementados.
 
 O trabalho está dividido em duas especificações conectadas por um contrato de
 dados:
@@ -35,8 +36,9 @@ equivalência, sem manter uma definição divergente.
 - Classes: `0 = chihuahua`, `1 = muffin`.
 - Entrada: RGB `128 × 128 × 3`, com correção EXIF, redimensionamento com
   preenchimento branco, interpolação bilinear e normalização para `[0, 1]`.
-- Split preferencial: 70% treino, 15% validação e 15% teste, seed 42, sujeito à
-  preservação de partições oficiais válidas.
+- As partições originais `train` e `test` da versão 2 serão preservadas. Uma
+  eventual validação conterá aproximadamente 15% somente de `train`, seed 42,
+  após aprovação baseada também na auditoria perceptual.
 - Manifesto de dataset: `schema_version = "1.0"`, serialização canônica e
   digests do índice e do relatório de qualidade.
 - CNN inicial: convoluções com 16/32/64 filtros, Global Average Pooling, Dense
@@ -66,7 +68,7 @@ implementação.
 | `make help` | Exibir a interface e seu estado | Operacional |
 | `make data` | Adquirir e preparar os dados | Não implementado |
 | `make validate-data` | Validar contrato e critérios da SPEC 01 | Não implementado |
-| `make check` | Compilar módulos e executar a suíte pytest | Operacional nos Incrementos 1 a 3 |
+| `make check` | Compilar módulos e executar a suíte pytest | Operacional nos Incrementos 1 a 5 |
 | `make smoke-train` | Exercitar treinamento mínimo | Não implementado |
 | `make train` | Executar treinamento completo com GPU | Não implementado |
 | `make evaluate` | Avaliar o checkpoint final no teste | Não implementado |
@@ -171,6 +173,26 @@ Os artefatos locais não finais estão em
 duplicatas perceptuais ou vazamento, não aprova as partições para treinamento e
 não constitui manifesto final.
 
+## Deduplicação exata e validação candidata
+
+O Incremento 5 agrupa SHA-256 repetidos deterministicamente, preserva `test`
+preferencialmente em grupos de mesmo rótulo entre partições e registra apenas
+exclusões lógicas. Conflitos de rótulo exigem decisão humana; confirmar a
+duplicação não resolve automaticamente quais amostras serão preservadas.
+
+No dataset real foram encontrados zero grupos exatos, zero conflitos, zero
+ocorrências entre `train` e `test`, zero exclusões e zero bloqueios. Permanecem
+elegíveis 2.559/2.174 imagens de chihuahua/muffin em `train` e 640/544 em `test`.
+Uma estimativa de 15% por classe de `train` corresponderia a 384 chihuahuas e
+326 muffins para validação, deixando 2.175/1.848 para treino. Nenhuma amostra foi
+atribuída: a decisão entre treinar com validação (Cenário A) ou por 15 épocas
+fixas sem validação (Cenário B) depende do Incremento 6 e só poderá resultar em
+split no Incremento 7.
+
+Os relatórios locais não finais estão em
+`data/audit/kaggle-2733586-v2-exact/`: `exact_deduplication.json`,
+`human_decisions.json` e `validation_feasibility.json`.
+
 ## Próximas etapas
 
 Após revisão deste bootstrap:
@@ -178,9 +200,11 @@ Após revisão deste bootstrap:
 1. aprovar e instalar somente as dependências necessárias à SPEC 01;
 2. inspecionar informações públicas sobre fonte, licença e versão do dataset;
 3. implementar incrementalmente a SPEC 01 e seus testes de contrato;
-4. após download autorizado, auditar amostras e propor o limiar perceptual;
-5. estabelecer o baseline e uma meta preditiva antes da avaliação final;
-6. diagnosticar a GPU e implementar a SPEC 02 sem alterar o particionamento.
+4. no Incremento 6, auditar duplicatas perceptuais e propor método/limiar;
+5. decidir entre os Cenários A e B e, somente no Incremento 7, materializar o
+   contrato de splits aprovado;
+6. estabelecer o baseline e uma meta preditiva antes da avaliação final;
+7. diagnosticar a GPU e implementar a SPEC 02 sem alterar o particionamento.
 
 ## Referências
 
