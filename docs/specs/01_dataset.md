@@ -1,6 +1,6 @@
 # SPEC 01 — Aquisição e preparação dos dados
 
-**Status:** Draft
+**Status:** Implementada no Incremento 8; aguardando revisão
 
 **Criada em:** 2026-11-01
 
@@ -544,16 +544,47 @@ permanece responsabilidade futura da SPEC 02.
 
 ## Contrato de dados
 
-Artefatos futuros previstos:
+Artefatos finais implementados:
 
 - `data/prepared/index.csv`: uma linha por arquivo descoberto;
 - `data/prepared/dataset_manifest.json`: identidade, esquema, parâmetros e
   resumo do dataset preparado;
 - `data/prepared/quality_report.json`: ocorrências e decisões de qualidade.
 
-Os artefatos finais acima ainda não existem. Os Incrementos 4, 5, 6 e 7 podem
-gerar, sob `data/`, somente artefatos de auditoria claramente identificados como
-não finais.
+Os três artefatos foram gerados e validados localmente no Incremento 8. Os
+artefatos de auditoria dos Incrementos 4 a 7 continuam preservados sob `data/`
+como entradas imutáveis do pipeline e não são confundidos com essa publicação
+final.
+
+### Integração e publicação implementadas no Incremento 8
+
+`make data` valida os digests dos 11 artefatos aprovados dos incrementos
+anteriores, carrega estritamente `split_assignments.json` e não invoca o
+algoritmo de particionamento. O pipeline reconcilia a árvore original inteira,
+compara os bytes de cada arquivo ao SHA-256 inventariado e constrói em memória
+o índice, o relatório e o manifesto. Somente depois de verificar o conjunto
+completo ele publica o diretório por renomeação atômica.
+
+Se os três arquivos finais já existem e são byte a byte idênticos, a execução
+retorna `up_to_date`. Arquivo ausente, extra ou divergente bloqueia a execução
+sem sobrescrita. Falha durante a preparação remove somente o diretório
+temporário próprio e nunca deixa uma publicação parcial.
+
+`make validate-data` é independente do gerador e somente leitura. Ele valida
+esquemas, tipos, serialização canônica, digest autorreferente do manifesto,
+digests dos artefatos, IDs e caminhos únicos, metadados, originais
+referenciados, SHA-256, classes, partições, contagens e o contrato completo de
+pré-processamento. Também comprova que todos os IDs do `test` original foram
+preservados e que `validation` contém apenas amostras do `train` original.
+
+Publicação real validada:
+
+| Artefato/contrato | SHA-256 |
+|---|---|
+| `index.csv` | `79213ec1780749dbd264f4a5752f2dc268e28acfc40b48b47691d127609ef74a` |
+| `quality_report.json` | `fc1a3fe67ea1e076b48d9851ec68ed40c6c416ec188f921a32eb10dc99e7632d` |
+| conteúdo do manifesto sem `manifest_sha256` | `c9b3f6be3147d8b861eb35e763817155bc612697487289e15e3cfe36a0e15762` |
+| bytes de `dataset_manifest.json` | `8da1e331b5a44e84ca60dae0fb90f9fb26491acecf2e89cc58f74ce86e0e16aa` |
 
 ### Campos mínimos do índice
 
@@ -652,6 +683,27 @@ evidência independente de duplicação.
 - **AC-DATA-013:** o manifesto declara `schema_version = "1.0"` e seu digest é
   reproduzível independentemente da ordem original das chaves.
 
+### Resultado dos critérios no Incremento 8
+
+| Critérios | Situação e evidência |
+|---|---|
+| `AC-DATA-001` | Atendido: fonte, versão, URL, licença declarada e estado ambíguo permanecem auditáveis no manifesto. |
+| `AC-DATA-002`–`003` | Atendidos: 5.918 arquivos reconciliados; 5.917 aceitos e um excluído com motivos no índice e relatório. |
+| `AC-DATA-004`–`005` | Atendidos: originais, hashes, classes, mapeamento `chihuahua = 0`, `muffin = 1` e uma atribuição por amostra foram validados. |
+| `AC-DATA-006`–`007` | Atendidos: nenhum SHA-256 aceito repetido e nenhum grupo confirmado atravessa splits; suspeitas pHash continuam sem `duplicate_group_id`. |
+| `AC-DATA-008`–`009` | Atendidos: atribuições aprovadas são consumidas diretamente, a reexecução é determinística e seed, algoritmo, proporções e contagens estão registrados. |
+| `AC-DATA-010` | Atendido: RGB 128 × 128 × 3, EXIF, padding branco, bilinear, modos L/RGBA e normalização `[0, 1]` são verificados. |
+| `AC-DATA-011` | Atendido: digests do índice e relatório correspondem aos bytes e ao manifesto. |
+| `AC-DATA-012` | Atendido com exceção didática aprovada: não há revisão exata bloqueante; os 719 pares perceptuais permanecem candidatos não revisados e não confirmados. |
+| `AC-DATA-013` | Atendido: esquema `1.0`, JSON canônico e digest autorreferente foram reproduzidos pelo validador. |
+
+Os testes automatizados do Incremento 8 cobrem integração sintética completa,
+alteração detectável de artefatos e originais, caminhos inseguros, esquema
+incompatível, IDs duplicados, divergência de classes e contagens, falha de
+publicação, reexecução determinística e comportamento somente leitura do
+validador. A validação real comprova separadamente as contagens e os digests
+acima; `make check` não depende do dataset nem de internet.
+
 ## Casos de borda
 
 - nomes de classes inesperados ou classe ausente;
@@ -748,3 +800,12 @@ evidência independente de duplicação.
   SHA-256 derivada de seed e `sample_id`, garantindo estabilidade sob mudanças
   na ordem de leitura. A possibilidade de sobreposição entre conjuntos é uma
   limitação metodológica aceita, não evidência de ausência de vazamento.
+- **2026-11-01:** o Incremento 8 consome inventário e atribuições somente após
+  validar seus digests aprovados; ele não recalcula IDs, deduplicação ou split.
+  A publicação final usa preparação completa em diretório temporário e
+  renomeação atômica, aceita reexecução idêntica e rejeita divergência sem
+  sobrescrita.
+- **2026-11-01:** `make validate-data` verifica os três artefatos finais e todos
+  os originais referenciados sem escrita. Os critérios `AC-DATA-001` a
+  `AC-DATA-013` foram atendidos, preservada a exceção didática explícita para
+  os 719 candidatos perceptuais não revisados.

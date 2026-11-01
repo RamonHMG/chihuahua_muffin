@@ -34,6 +34,10 @@ def test_example_config_is_structurally_valid() -> None:
     assert config.dataset.version_status == "confirmed"
     assert config.dataset.license == "CC0: Public Domain"
     assert config.dataset.license_status == "ambiguous"
+    assert config.dataset.acquired_at == "2026-11-01T18:31:19.646234Z"
+    assert config.dataset.acquisition_tool == "kagglehub"
+    assert config.dataset.acquisition_tool_version == "1.0.3"
+    assert config.dataset.acquisition_file_count == 5918
     assert config.dataset.human_authorization.status == "approved"
     assert config.dataset.human_authorization.source_id == "2733586"
     assert config.dataset.human_authorization.dataset_version == "2"
@@ -117,6 +121,21 @@ def test_acquisition_rejects_pending_license_even_with_local_exception(
             'license_status = "unknown"',
             "dataset.license_status",
         ),
+        (
+            'acquired_at = "2026-11-01T18:31:19.646234Z"',
+            'acquired_at = "2026-11-01"',
+            "dataset.acquired_at",
+        ),
+        (
+            'acquisition_tool = "kagglehub"',
+            'acquisition_tool = "other"',
+            "dataset.acquisition_tool",
+        ),
+        (
+            "acquisition_file_count = 5918",
+            "acquisition_file_count = 0",
+            "dataset.acquisition_file_count",
+        ),
         ("train = 0.70", 'train = "0.70"', "dataset.preferred_split.train"),
         ("train = 0.70", "train = 0.69", "dataset.preferred_split.train"),
         ("validation = 0.15", "validation = 0.14", "dataset.preferred_split.validation"),
@@ -184,6 +203,7 @@ def test_incompatible_values_are_rejected(
         ('handle = "samuelcortinhas/muffin-vs-chihuahua-image-classification"\n', "dataset.handle"),
         ('version = "2"\n', "dataset.version"),
         ('license = "CC0: Public Domain"\n', "dataset.license"),
+        ('acquired_at = "2026-11-01T18:31:19.646234Z"\n', "dataset.acquired_at"),
         ("validation = 0.15\n", "dataset.preferred_split.validation"),
         ("channels = 3\n", "preprocessing.channels"),
     ],

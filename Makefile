@@ -10,8 +10,8 @@ help:
 		'' \
 		'Alvo                 Estado' \
 		'make help             operacional: exibe esta ajuda' \
-		'make data             NÃO IMPLEMENTADO: aquisição e preparação' \
-		'make validate-data    NÃO IMPLEMENTADO: validação da SPEC 01' \
+		'make data             operacional: gera artefatos finais locais da SPEC 01' \
+		'make validate-data    operacional: valida artefatos e originais sem escrita' \
 		'make check            operacional: compilação e testes automatizados' \
 		'make smoke-train      NÃO IMPLEMENTADO: treino mínimo' \
 		'make train            NÃO IMPLEMENTADO: treino completo com GPU' \
@@ -25,10 +25,12 @@ define not_implemented
 endef
 
 data:
-	$(not_implemented)
+	@test -x '$(PYTHON)' || { printf 'ERRO: interpretador não encontrado em %s.\n' '$(PYTHON)' >&2; exit 2; }
+	@PYTHONPATH=src $(PYTHON) -m chihuahua_muffin.data.prepared_cli generate
 
 validate-data:
-	$(not_implemented)
+	@test -x '$(PYTHON)' || { printf 'ERRO: interpretador não encontrado em %s.\n' '$(PYTHON)' >&2; exit 2; }
+	@PYTHONPATH=src $(PYTHON) -m chihuahua_muffin.data.prepared_cli validate
 
 check:
 	@test -x '$(PYTHON)' || { printf 'ERRO: interpretador não encontrado em %s.\n' '$(PYTHON)' >&2; exit 2; }

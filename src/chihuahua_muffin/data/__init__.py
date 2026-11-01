@@ -38,6 +38,20 @@ from .inventory import (
     write_initial_audit,
 )
 from .preprocessing import PreprocessedImage, PreprocessingError, preprocess_image
+from .prepared import (
+    PreparationError,
+    PreparationLayout,
+    PreparationRunResult,
+    PreparedArtifacts,
+    PublicationResult,
+    ValidationResult as PreparedValidationResult,
+    build_prepared_artifacts,
+    prepare_dataset,
+    prepare_default_dataset,
+    publish_prepared_artifacts,
+    validate_default_dataset,
+    validate_prepared_dataset,
+)
 from .perceptual import (
     ComparisonScope,
     PerceptualAuditError,
@@ -77,8 +91,10 @@ from .splitting import (
     DatasetSplit,
     DatasetSplitResult,
     SplitAssignment,
+    SplitAssignmentsArtifact,
     SplitError,
     create_split_assignments,
+    load_split_assignments,
     write_split_audit,
 )
 
@@ -112,6 +128,12 @@ __all__ = [
     "ProjectConfig",
     "PreprocessedImage",
     "PreprocessingError",
+    "PreparationError",
+    "PreparationLayout",
+    "PreparationRunResult",
+    "PreparedArtifacts",
+    "PreparedValidationResult",
+    "PublicationResult",
     "ComparisonScope",
     "PerceptualAuditError",
     "PerceptualAuditResult",
@@ -124,6 +146,7 @@ __all__ = [
     "ReviewOccurrenceType",
     "SampleAction",
     "SplitAssignment",
+    "SplitAssignmentsArtifact",
     "SplitError",
     "ValidationFeasibilityAssessment",
     "ValidationMode",
@@ -143,6 +166,7 @@ __all__ = [
     "human_decisions_payload",
     "inventory_dataset",
     "load_initial_inventory",
+    "load_split_assignments",
     "load_config",
     "load_human_decisions",
     "make_sample_id",
@@ -150,6 +174,10 @@ __all__ = [
     "normalize_relative_path",
     "provenance_from_config",
     "preprocess_image",
+    "prepare_dataset",
+    "prepare_default_dataset",
+    "build_prepared_artifacts",
+    "publish_prepared_artifacts",
     "render_review_panel",
     "sha256_file",
     "sha256_hex",
@@ -157,4 +185,6 @@ __all__ = [
     "write_perceptual_audit",
     "write_split_audit",
     "write_exact_audit",
+    "validate_default_dataset",
+    "validate_prepared_dataset",
 ]

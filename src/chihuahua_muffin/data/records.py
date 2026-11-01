@@ -37,6 +37,10 @@ class DatasetConfig:
     source_url: str
     metadata_url: str
     metadata_checked_at: str
+    acquired_at: str
+    acquisition_tool: str
+    acquisition_tool_version: str
+    acquisition_file_count: int
     raw_dir: Path
     prepared_dir: Path
     preserve_valid_official_splits: bool

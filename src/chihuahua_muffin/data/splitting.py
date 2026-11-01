@@ -6,9 +6,15 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from enum import StrEnum
 from hashlib import sha256
+import json
 from pathlib import Path
 
-from .canonical import canonical_json_bytes, sha256_hex
+from .canonical import (
+    canonical_json_bytes,
+    make_sample_id,
+    normalize_relative_path,
+    sha256_hex,
+)
 from .deduplication import ExactDeduplicationResult, SampleAction
 from .inventory import AuditStatus, CLASS_IDS, InventoryRecord, InventoryResult
 
@@ -52,6 +58,14 @@ class SplitAssignment:
             "source_partition": self.source_partition,
             "split": self.split.value,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class SplitAssignmentsArtifact:
+    """Validated Increment 7 assignments loaded without repartitioning."""
+
+    dataset_version_id: str
+    assignments: tuple[SplitAssignment, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -266,6 +280,59 @@ def write_split_audit(
     return assignments_path, report_path
 
 
+def load_split_assignments(
+    path: str | Path,
+    *,
+    expected_dataset_version_id: str | None = None,
+) -> SplitAssignmentsArtifact:
+    """Load the approved Increment 7 assignments without recomputing them."""
+
+    artifact_path = Path(path)
+    try:
+        document = json.loads(artifact_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise SplitError(f"cannot read split assignments: {error}") from error
+    expected_fields = {
+        "artifact_type",
+        "artifact_version",
+        "artifact_status",
+        "dataset_version_id",
+        "assignments",
+    }
+    if type(document) is not dict or set(document) != expected_fields:
+        raise SplitError("split assignment artifact fields do not match schema")
+    if document["artifact_type"] != "dataset_split_assignments":
+        raise SplitError("unexpected split assignment artifact_type")
+    if document["artifact_version"] != "1.0":
+        raise SplitError("unsupported split assignment artifact_version")
+    if document["artifact_status"] != "nonfinal_increment_7_record":
+        raise SplitError("unexpected split assignment artifact_status")
+    dataset_version_id = document["dataset_version_id"]
+    if type(dataset_version_id) is not str or not dataset_version_id:
+        raise SplitError("split dataset_version_id must be a non-empty string")
+    if (
+        expected_dataset_version_id is not None
+        and dataset_version_id != expected_dataset_version_id
+    ):
+        raise SplitError("split assignments belong to a different version")
+    values = document["assignments"]
+    if type(values) is not list:
+        raise SplitError("assignments must be a JSON list")
+    assignments = tuple(
+        _assignment_from_json(value, dataset_version_id=dataset_version_id)
+        for value in values
+    )
+    sample_ids = [assignment.sample_id for assignment in assignments]
+    if sample_ids != sorted(sample_ids):
+        raise SplitError("split assignments are not in canonical sample_id order")
+    if len(sample_ids) != len(set(sample_ids)):
+        raise SplitError("split assignments contain duplicate sample IDs")
+    return SplitAssignmentsArtifact(
+        dataset_version_id=dataset_version_id,
+        assignments=assignments,
+    )
+
+
 def _validate_configuration(
     *, validation_fraction: float, seed: int, perceptual_candidate_count: int
 ) -> None:
@@ -420,3 +487,73 @@ def _source_counts(
         partition: dict(sorted(class_counts.items()))
         for partition, class_counts in sorted(nested.items())
     }
+
+
+_ASSIGNMENT_FIELDS = {
+    "sample_id",
+    "relative_path",
+    "sha256",
+    "class_name",
+    "class_id",
+    "source_partition",
+    "split",
+}
+
+
+def _assignment_from_json(
+    value: object,
+    *,
+    dataset_version_id: str,
+) -> SplitAssignment:
+    if type(value) is not dict or set(value) != _ASSIGNMENT_FIELDS:
+        raise SplitError("split assignment fields do not match schema")
+    sample_id = value["sample_id"]
+    relative_path = value["relative_path"]
+    file_hash = value["sha256"]
+    class_name = value["class_name"]
+    class_id = value["class_id"]
+    source_partition = value["source_partition"]
+    if type(sample_id) is not str or not sample_id:
+        raise SplitError("assignment sample_id must be a non-empty string")
+    if type(relative_path) is not str:
+        raise SplitError("assignment relative_path must be a string")
+    try:
+        normalized_path = normalize_relative_path(relative_path)
+    except ValueError as error:
+        raise SplitError(f"assignment relative_path is invalid: {error}") from error
+    if normalized_path != relative_path:
+        raise SplitError("assignment relative_path is not canonical")
+    if sample_id != make_sample_id(dataset_version_id, relative_path):
+        raise SplitError("assignment sample_id does not match its relative_path")
+    if (
+        type(file_hash) is not str
+        or len(file_hash) != 64
+        or any(character not in "0123456789abcdef" for character in file_hash)
+    ):
+        raise SplitError("assignment SHA-256 is invalid")
+    if (
+        type(class_name) is not str
+        or class_name not in CLASS_IDS
+        or type(class_id) is not int
+        or class_id != CLASS_IDS[class_name]
+    ):
+        raise SplitError("assignment class metadata is inconsistent")
+    if type(source_partition) is not str or source_partition not in {"train", "test"}:
+        raise SplitError("assignment source_partition is invalid")
+    try:
+        split = DatasetSplit(value["split"])
+    except (TypeError, ValueError) as error:
+        raise SplitError("assignment split is invalid") from error
+    if split is DatasetSplit.TEST and source_partition != "test":
+        raise SplitError("test assignment does not originate from source test")
+    if split is not DatasetSplit.TEST and source_partition != "train":
+        raise SplitError("train/validation assignment does not originate from source train")
+    return SplitAssignment(
+        sample_id=sample_id,
+        relative_path=relative_path,
+        sha256=file_hash,
+        class_name=class_name,
+        class_id=class_id,
+        source_partition=source_partition,
+        split=split,
+    )

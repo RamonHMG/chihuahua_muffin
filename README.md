@@ -5,7 +5,7 @@ de chihuahuas e muffins com TensorFlow/Keras.
 
 ## Estado atual
 
-Os **Incrementos 1 a 7 da SPEC 01** implementam a estrutura mínima do pacote, o
+Os **Incrementos 1 a 8 da SPEC 01** implementam a estrutura mínima do pacote, o
 carregamento e a validação estrutural de `config/example.toml`, serialização
 JSON/CSV canônica, digests SHA-256, `sample_id` determinístico, proveniência e
 um adaptador KaggleHub testável sem rede. O Incremento 4 acrescenta inventário
@@ -14,9 +14,11 @@ contrato de pré-processamento. O Incremento 5 acrescenta deduplicação exata n
 destrutiva, decisões humanas canônicas e análise preliminar de validação. O
 Incremento 6 acrescenta triagem perceptual pHash, distribuição completa de
 distâncias e painel local de revisão. O Incremento 7 fixa o Cenário A e cria
-atribuições estratificadas e determinísticas de treino, validação e teste.
-Manifestos finais, pipeline `tf.data`, modelo e treinamento continuam não
-concluídos.
+atribuições estratificadas e determinísticas de treino, validação e teste. O
+Incremento 8 integra essas evidências, publica atomicamente o índice, o
+relatório de qualidade e o manifesto finais e os verifica com um validador
+independente. Pipeline `tf.data`, modelo e treinamento continuam não
+implementados e pertencem à SPEC 02.
 
 O trabalho está dividido em duas especificações conectadas por um contrato de
 dados:
@@ -62,23 +64,26 @@ fonte, versão e finalidade registradas.
 
 ## Interface operacional
 
-`make help` e `make check` estão operacionais. Os demais alvos compõem a
-interface estável planejada, mas falham explicitamente até receberem
-implementação.
+`make help`, `make data`, `make validate-data` e `make check` estão
+operacionais. Os alvos da SPEC 02 continuam falhando explicitamente até
+receberem implementação.
 
-| Comando | Responsabilidade futura | Estado |
+| Comando | Responsabilidade | Estado |
 |---|---|---|
 | `make help` | Exibir a interface e seu estado | Operacional |
-| `make data` | Adquirir e preparar os dados | Não implementado |
-| `make validate-data` | Validar contrato e critérios da SPEC 01 | Não implementado |
-| `make check` | Compilar módulos e executar a suíte pytest | Operacional nos Incrementos 1 a 7 |
+| `make data` | Gerar artefatos finais a partir dos dados e decisões locais aprovados | Operacional |
+| `make validate-data` | Validar artefatos, originais e contrato sem escrita | Operacional |
+| `make check` | Compilar módulos e executar a suíte sintética/offline | Operacional nos Incrementos 1 a 8 |
 | `make smoke-train` | Exercitar treinamento mínimo | Não implementado |
 | `make train` | Executar treinamento completo com GPU | Não implementado |
 | `make evaluate` | Avaliar o checkpoint final no teste | Não implementado |
 
 Um alvo que termina com a mensagem "não implementado" não constitui uma
-verificação aprovada. O sucesso de `make check` cobre somente os componentes já
-implementados; não valida aquisição, dados reais ou treinamento.
+verificação aprovada. O sucesso de `make check` cobre os componentes
+implementados usando dados sintéticos e temporários; a árvore real e seus
+artefatos são verificados separadamente por `make data` e
+`make validate-data`. Nenhum desses comandos realiza download, treinamento ou
+alteração das imagens originais.
 
 ## Ambiente local auditado
 
@@ -247,24 +252,52 @@ são ordenadas por uma chave SHA-256 derivada de domínio versionado, seed 42 e
 | `test` | 640 | 544 | 1.184 |
 | **total** | **3.199** | **2.718** | **5.917** |
 
-Os registros locais não finais estão em
+Os registros locais que alimentam os artefatos finais estão em
 `data/audit/kaggle-2733586-v2-splits/`: `split_assignments.json` e
 `split_report.json`. Eles preservam ID, caminho, rótulo, partição original e
-SHA-256, mas não substituem o manifesto final do Incremento 8.
+SHA-256 e são consumidos diretamente, sem novo sorteio, pelo Incremento 8.
 
 Os 719 pares de pHash permanecem candidatos não revisados: não causaram
 exclusão, alteração de rótulo, agrupamento ou escolha de split. Assim, versões
 da mesma fotografia ainda podem atravessar treino, validação e teste, o que
 limita a interpretação futura das métricas como evidência de generalização.
 
+## Artefatos finais da SPEC 01
+
+O Incremento 8 publicou localmente, sob `data/prepared/`, exatamente:
+
+- `index.csv`, com 5.918 linhas de dados: 5.917 imagens aceitas e o marcador
+  KaggleHub excluído com motivos documentados;
+- `quality_report.json`, que reconcilia estados, classes, partições, formatos,
+  deduplicação exata e a limitação perceptual aceita;
+- `dataset_manifest.json`, com proveniência, licença ainda ambígua, autorização
+  local educacional, contrato de pré-processamento, split e digests.
+
+O gerador valida os digests dos 11 artefatos de auditoria aprovados, compara
+cada arquivo original ao SHA-256 inventariado e consome as atribuições do
+Incremento 7 sem chamar novamente o algoritmo de split. A publicação ocorre
+por diretório temporário e renomeação atômica. Reexecuções idênticas retornam
+`up_to_date`; conteúdo final ausente, extra ou divergente é recusado sem
+sobrescrita.
+
+Digests da execução real validada em 2026-11-01:
+
+| Artefato/contrato | SHA-256 |
+|---|---|
+| `index.csv` | `79213ec1780749dbd264f4a5752f2dc268e28acfc40b48b47691d127609ef74a` |
+| `quality_report.json` | `fc1a3fe67ea1e076b48d9851ec68ed40c6c416ec188f921a32eb10dc99e7632d` |
+| conteúdo do manifesto sem o próprio digest | `c9b3f6be3147d8b861eb35e763817155bc612697487289e15e3cfe36a0e15762` |
+| arquivo `dataset_manifest.json` | `8da1e331b5a44e84ca60dae0fb90f9fb26491acecf2e89cc58f74ce86e0e16aa` |
+
 ## Próximas etapas
 
-Próximas etapas, somente após revisão do Incremento 7:
+Próximas etapas, somente após revisão do Incremento 8:
 
-1. produzir no Incremento 8 os artefatos finais e validar o contrato completo
-   da SPEC 01;
-2. estabelecer o baseline e uma meta preditiva antes da avaliação final;
-3. diagnosticar a GPU e implementar a SPEC 02 sem alterar o particionamento.
+1. estabelecer o baseline e uma meta preditiva antes da avaliação final;
+2. diagnosticar a GPU e implementar a SPEC 02 sem alterar o manifesto nem o
+   particionamento;
+3. implementar a equivalência do pré-processamento com `tf.data` e somente
+   então iniciar treinamento, mediante autorização própria.
 
 ## Referências
 

@@ -12,6 +12,7 @@ from chihuahua_muffin.data.splitting import (
     DatasetSplit,
     SplitError,
     create_split_assignments,
+    load_split_assignments,
     write_split_audit,
 )
 
@@ -261,6 +262,41 @@ def test_split_audit_is_canonical_deterministic_and_explicitly_nonfinal(
     assert {path: path.read_bytes() for path in source.rglob("*.png")} == originals
     with pytest.raises(SplitError, match="already exists"):
         write_split_audit(result, tmp_path / "first")
+
+
+def test_split_assignment_artifact_is_loaded_without_repartitioning(
+    tmp_path: Path,
+) -> None:
+    inventory, exact = _dataset(tmp_path / "source")
+    result = create_split_assignments(inventory, exact)
+    assignments_path, _ = write_split_audit(result, tmp_path / "audit")
+
+    loaded = load_split_assignments(
+        assignments_path,
+        expected_dataset_version_id=VERSION_ID,
+    )
+
+    assert loaded.dataset_version_id == VERSION_ID
+    assert loaded.assignments == result.assignments
+
+
+def test_split_assignment_loader_rejects_duplicate_ids_or_schema(
+    tmp_path: Path,
+) -> None:
+    inventory, exact = _dataset(tmp_path / "source")
+    result = create_split_assignments(inventory, exact)
+    assignments_path, _ = write_split_audit(result, tmp_path / "audit")
+    document = json.loads(assignments_path.read_text(encoding="utf-8"))
+    document["assignments"][1] = dict(document["assignments"][0])
+    assignments_path.write_text(json.dumps(document), encoding="utf-8")
+
+    with pytest.raises(SplitError, match="duplicate sample IDs"):
+        load_split_assignments(assignments_path)
+
+    document["artifact_version"] = "2.0"
+    assignments_path.write_text(json.dumps(document), encoding="utf-8")
+    with pytest.raises(SplitError, match="unsupported"):
+        load_split_assignments(assignments_path)
 
 
 def test_inventory_and_exact_result_must_match(tmp_path: Path) -> None:

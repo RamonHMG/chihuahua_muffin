@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 import tomllib
@@ -92,6 +93,16 @@ def _one_of(field: str, value: str, allowed: set[str]) -> None:
         raise ConfigError(field, f"must be one of: {choices}")
 
 
+def _require_timestamp(field: str, value: str) -> None:
+    normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+    try:
+        timestamp = datetime.fromisoformat(normalized)
+    except ValueError as error:
+        raise ConfigError(field, "must be an ISO 8601 timestamp") from error
+    if timestamp.tzinfo is None:
+        raise ConfigError(field, "must include a timezone")
+
+
 def _parse_mode(mode: ValidationMode | str) -> ValidationMode:
     try:
         return ValidationMode(mode)
@@ -156,6 +167,22 @@ def load_config(
         str,
         "dataset.metadata_checked_at",
     )
+    acquired_at = _value(dataset_table, "acquired_at", str, "dataset.acquired_at")
+    acquisition_tool = _value(
+        dataset_table, "acquisition_tool", str, "dataset.acquisition_tool"
+    )
+    acquisition_tool_version = _value(
+        dataset_table,
+        "acquisition_tool_version",
+        str,
+        "dataset.acquisition_tool_version",
+    )
+    acquisition_file_count = _value(
+        dataset_table,
+        "acquisition_file_count",
+        int,
+        "dataset.acquisition_file_count",
+    )
     raw_dir_text = _value(dataset_table, "raw_dir", str, "dataset.raw_dir")
     prepared_dir_text = _value(
         dataset_table, "prepared_dir", str, "dataset.prepared_dir"
@@ -174,11 +201,19 @@ def load_config(
         ("dataset.source_url", source_url),
         ("dataset.metadata_url", metadata_url),
         ("dataset.metadata_checked_at", metadata_checked_at),
+        ("dataset.acquired_at", acquired_at),
+        ("dataset.acquisition_tool", acquisition_tool),
+        ("dataset.acquisition_tool_version", acquisition_tool_version),
         ("dataset.raw_dir", raw_dir_text),
         ("dataset.prepared_dir", prepared_dir_text),
     ):
         _nonempty(field, value)
     _exact("dataset.source", source, "kaggle")
+    _exact("dataset.acquisition_tool", acquisition_tool, "kagglehub")
+    _exact("dataset.acquisition_tool_version", acquisition_tool_version, "1.0.3")
+    if type(acquisition_file_count) is not int or acquisition_file_count <= 0:
+        raise ConfigError("dataset.acquisition_file_count", "must be a positive integer")
+    _require_timestamp("dataset.acquired_at", acquired_at)
     _one_of(
         "dataset.version_status",
         version_status,
@@ -509,6 +544,10 @@ def load_config(
             source_url=source_url,
             metadata_url=metadata_url,
             metadata_checked_at=metadata_checked_at,
+            acquired_at=acquired_at,
+            acquisition_tool=acquisition_tool,
+            acquisition_tool_version=acquisition_tool_version,
+            acquisition_file_count=acquisition_file_count,
             raw_dir=raw_dir,
             prepared_dir=prepared_dir,
             preserve_valid_official_splits=preserve_splits,
