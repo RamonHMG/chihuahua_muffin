@@ -54,6 +54,11 @@ equivalência bit a bit entre ambientes distintos.
 
 ### Contrato e pipeline de entrada
 
+A SPEC 01 define e valida o contrato determinístico de pré-processamento. Esta
+SPEC é responsável por aplicá-lo efetivamente com `tf.data` e por comprovar,
+por testes compartilhados de conformidade, que não há divergência entre a
+definição publicada e os pipelines de treino, validação, teste e inferência.
+
 - **MODEL-001:** a execução deve validar versão do esquema, digests, classes,
   splits e parâmetros da SPEC 01 antes do treino.
 - **MODEL-002:** nenhum comando da SPEC 02 pode criar ou modificar splits.

@@ -23,11 +23,11 @@ dist/
 kaggle.json
 config/local.toml
 
-# Dados e artefatos gerados
-data/
-artifacts/
-reports/
-logs/
+# Dados e artefatos gerados na raiz do projeto
+/data/
+/artifacts/
+/reports/
+/logs/
 
 # Arquivos temporários
 *.log

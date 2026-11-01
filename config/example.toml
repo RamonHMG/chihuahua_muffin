@@ -7,6 +7,8 @@ seed = 42
 handle = "samuelcortinhas/muffin-vs-chihuahua-image-classification"
 # Deve receber uma versão explícita somente após inspeção da fonte.
 version = ""
+# Deve receber a licença verificada publicamente antes de qualquer aquisição.
+license = ""
 source_url = "https://www.kaggle.com/datasets/samuelcortinhas/muffin-vs-chihuahua-image-classification"
 raw_dir = "data/raw"
 prepared_dir = "data/prepared"

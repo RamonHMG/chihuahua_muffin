@@ -1,5 +1,6 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
+PYTHON := .venv/bin/python
 
 .PHONY: help data validate-data check smoke-train train evaluate
 
@@ -11,7 +12,7 @@ help:
 		'make help             operacional: exibe esta ajuda' \
 		'make data             NÃO IMPLEMENTADO: aquisição e preparação' \
 		'make validate-data    NÃO IMPLEMENTADO: validação da SPEC 01' \
-		'make check            NÃO IMPLEMENTADO: verificações automatizadas' \
+		'make check            operacional: compilação e testes automatizados' \
 		'make smoke-train      NÃO IMPLEMENTADO: treino mínimo' \
 		'make train            NÃO IMPLEMENTADO: treino completo com GPU' \
 		'make evaluate         NÃO IMPLEMENTADO: avaliação final' \
@@ -30,7 +31,11 @@ validate-data:
 	$(not_implemented)
 
 check:
-	$(not_implemented)
+	@test -x '$(PYTHON)' || { printf 'ERRO: interpretador não encontrado em %s.\n' '$(PYTHON)' >&2; exit 2; }
+	@printf 'Verificando compilação dos módulos e testes...\n'
+	@$(PYTHON) -m compileall -q src tests
+	@printf 'Executando a suíte pytest...\n'
+	@$(PYTHON) -m pytest
 
 smoke-train:
 	$(not_implemented)

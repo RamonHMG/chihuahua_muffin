@@ -17,6 +17,11 @@ reparticionamento ou decisões implícitas.
 
 Esta SPEC não implementa nem treina um classificador.
 
+A SPEC 01 é proprietária da definição e da validação do contrato determinístico
+de pré-processamento. A aplicação efetiva desse contrato durante a leitura com
+`tf.data` pertence à SPEC 02 e deverá demonstrar equivalência por testes, sem
+redefinir ou enfraquecer as regras desta SPEC.
+
 ## Cenários e testes independentes
 
 ### Cenário 1 — Fixar origem e proveniência (P1)
@@ -194,8 +199,10 @@ entre splits, não remover exemplos difíceis.
   preenchimento deve ser `(1.0, 1.0, 1.0)`.
 - **DATA-031:** pixels devem ser convertidos para ponto flutuante e normalizados
   para `[0, 1]` pela divisão por 255.
-- **DATA-032:** transformações determinísticas devem ocorrer durante a leitura
-  com `tf.data`; não serão produzidas cópias redimensionadas nesta versão.
+- **DATA-032:** a SPEC 01 deve definir e validar as transformações
+  determinísticas. A SPEC 02 deve aplicá-las durante a leitura com `tf.data`,
+  usando comportamento equivalente no treino, validação, teste e inferência;
+  não serão produzidas cópias redimensionadas nesta versão.
 - **DATA-033:** parâmetros que precisem ser estimados devem usar apenas treino e
   depois ser aplicados sem reajuste a validação e teste.
 - **DATA-034:** qualquer aumento de dados futuro deve ser aleatório apenas no
@@ -327,3 +334,5 @@ Nenhum desses artefatos existe no bootstrap.
   ignorados pelo Git inicialmente.
 - **2026-11-01:** verificação pública pré-download e inspeção real pós-download
   são etapas distintas; licença ausente ou ambígua bloqueia o uso.
+- **2026-11-01:** a SPEC 01 define e valida o contrato de pré-processamento; a
+  SPEC 02 o aplica com `tf.data` e deve comprovar equivalência por testes.

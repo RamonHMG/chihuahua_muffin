@@ -6,8 +6,18 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = []
 
+[project.optional-dependencies]
+dev = [
+    "pytest==9.2.0",
+]
+
 # Dependências de ML são intencionalmente omitidas no bootstrap. TensorFlow,
 # Keras e a pilha GPU só serão declarados após verificação de compatibilidade.
+
+[tool.pytest.ini_options]
+addopts = ["--strict-config", "--strict-markers", "-ra"]
+pythonpath = ["src"]
+testpaths = ["tests"]
 
 [tool.chihuahua_muffin.compatibility]
 status = "pending-environment-validation"

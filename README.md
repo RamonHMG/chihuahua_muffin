@@ -5,9 +5,11 @@ de chihuahuas e muffins com TensorFlow/Keras.
 
 ## Estado atual
 
-O repositório está na etapa de **bootstrap documental e estrutural**. Ainda não
-existem código de aquisição, pipeline `tf.data`, modelo, testes funcionais ou
-artefatos de treinamento.
+O **Incremento 1 da SPEC 01** implementa a estrutura mínima do pacote, o
+carregamento e a validação estrutural de `config/example.toml` e uma suíte de
+testes sem rede, GPU ou dataset real. Aquisição, processamento de imagens,
+duplicatas, particionamento, pipeline `tf.data`, modelo e treinamento continuam
+não implementados.
 
 O trabalho está dividido em duas especificações conectadas por um contrato de
 dados:
@@ -18,6 +20,9 @@ dados:
   do manifesto, CNN, GPU, treinamento, seleção do checkpoint e avaliação.
 
 A SPEC 02 não pode refazer o particionamento produzido pela SPEC 01.
+A SPEC 01 também define e valida o contrato determinístico de pré-processamento;
+a SPEC 02 será responsável por aplicá-lo com `tf.data` e comprovar por testes a
+equivalência, sem manter uma definição divergente.
 
 ## Convenções principais
 
@@ -43,8 +48,8 @@ auditadas. Nenhum dado foi baixado no bootstrap.
 
 ## Interface operacional
 
-`make help` é o único alvo operacional útil neste momento. Os demais alvos
-compõem a interface estável planejada, mas falham explicitamente até receberem
+`make help` e `make check` estão operacionais. Os demais alvos compõem a
+interface estável planejada, mas falham explicitamente até receberem
 implementação.
 
 | Comando | Responsabilidade futura | Estado |
@@ -52,13 +57,14 @@ implementação.
 | `make help` | Exibir a interface e seu estado | Operacional |
 | `make data` | Adquirir e preparar os dados | Não implementado |
 | `make validate-data` | Validar contrato e critérios da SPEC 01 | Não implementado |
-| `make check` | Executar verificações automatizadas reais | Não implementado |
+| `make check` | Compilar módulos e executar a suíte pytest | Operacional no escopo do Incremento 1 |
 | `make smoke-train` | Exercitar treinamento mínimo | Não implementado |
 | `make train` | Executar treinamento completo com GPU | Não implementado |
 | `make evaluate` | Avaliar o checkpoint final no teste | Não implementado |
 
 Um alvo que termina com a mensagem "não implementado" não constitui uma
-verificação aprovada.
+verificação aprovada. O sucesso de `make check` cobre somente os componentes já
+implementados; não valida aquisição, dados reais ou treinamento.
 
 ## Ambiente local auditado
 
@@ -73,7 +79,8 @@ Ambiente recriado e validado em 2026-11-01:
 - `.venv/bin/python` executa CPython 3.12.3 com prefixo e executáveis apontando
   para a raiz atual do projeto.
 - `python -m pip` e `.venv/bin/pip` funcionam com pip 24.0; `pip check` não
-  encontrou requisitos quebrados e nenhum pacote de projeto foi instalado.
+  encontrou requisitos quebrados. O Incremento 1 instalou `pytest==9.2.0` e
+  somente suas dependências transitivas necessárias.
 - A ativação Bash define `VIRTUAL_ENV`, `python` e `pip` para a `.venv` atual.
   Os scripts csh e fish também contêm o caminho correto, mas esses shells não
   estavam instalados para teste de execução.
@@ -90,14 +97,20 @@ Ambiente recriado e validado em 2026-11-01:
   disponíveis. TensorFlow não está instalado.
 
 A base Python está pronta para a implementação incremental da SPEC 01. A
-declaração e instalação das dependências do projeto continuam sujeitas a etapa
-e autorização próprias. Drivers e pilha de GPU não foram modificados.
+declaração e instalação das demais dependências continuam sujeitas a etapa e
+autorização próprias. Drivers e pilha de GPU não foram modificados.
 
 ## Configuração
 
-`config/example.toml` registra somente decisões já aprovadas e campos de
-compatibilidade pendentes. Ele não contém credenciais e não deve ser tratado
-como configuração validada para execução.
+`config/example.toml` é a configuração padrão para validação estrutural e
+registra decisões aprovadas e campos pendentes. O modo estrutural aceita versão
+e licença vazias para permitir testes. O modo de aquisição exige ambos os
+metadados preenchidos e rejeita o exemplo enquanto a fonte não for verificada.
+Isso não transforma o exemplo em configuração autorizada para download.
+
+A única dependência direta de desenvolvimento instalada neste incremento é
+`pytest==9.2.0`, registrada no extra `dev` do `pyproject.toml`; também foram
+instaladas suas dependências transitivas necessárias.
 
 Dados, credenciais e artefatos gerados ficarão fora do Git. O arquivo
 `bootstrap_prompt` é preservado e permanece disponível para versionamento como
