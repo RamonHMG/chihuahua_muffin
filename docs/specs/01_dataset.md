@@ -270,6 +270,39 @@ Nenhum desses artefatos existe no bootstrap.
 - Manifestos e artefatos de dados permanecem locais sob `data/`, inicialmente
   ignorados pelo Git. Publicação ou versionamento exigirá decisão posterior.
 
+#### Convenção canônica aprovada
+
+- JSON usa UTF-8, `sort_keys=True`, `ensure_ascii=False`, separadores
+  `(",", ":")`, `allow_nan=False` e nenhum newline adicional. São aceitos
+  somente `null`, booleanos, inteiros, floats finitos, strings UTF-8, listas e
+  objetos com chaves string; demais tipos e ciclos são rejeitados.
+- O digest JSON é SHA-256 dos bytes canônicos. Para um manifesto, somente o
+  campo superior indicado como seu próprio digest é removido do cálculo; o
+  objeto recebido não é alterado.
+- O CSV do índice usa UTF-8 sem BOM, delimitador vírgula, aspas duplas,
+  `csv.QUOTE_MINIMAL`, duplicação de aspas internas, nenhum caractere de escape
+  e terminador LF. Linhas são ordenadas por `sample_id` e IDs repetidos são
+  inválidos.
+- A ordem fixa do CSV é: `sample_id`, `relative_path`, `class_name`, `class_id`,
+  `source_partition`, `split`, `status`, `reason`, `sha256`,
+  `duplicate_group_id`, `perceptual_method`, `perceptual_evidence`, `format`,
+  `width`, `height`, `channels`, `is_animated`, `exif_orientation_applied` e
+  `color_conversion`.
+- Células CSV aceitam vazio, booleano, inteiro, float finito ou string UTF-8.
+  `None` vira campo vazio, booleanos usam `true`/`false` e valores não escalares
+  são rejeitados.
+
+#### Identificadores de amostra
+
+O `sample_id` é o SHA-256 hexadecimal minúsculo de um domínio versionado seguido
+pelo identificador imutável da versão e pelo caminho relativo POSIX normalizado.
+Cada componente usa UTF-8 e prefixo de comprimento de 64 bits big-endian, o que
+torna os limites inequívocos. O domínio exato é a sequência de bytes ASCII
+`chihuahua-muffin:sample-id:v1` seguida por um byte NUL (`0x00`). Caminhos
+absolutos, qualificados por drive, vazios ou contendo `..` são rejeitados. O
+conteúdo do arquivo não participa do `sample_id`; seu SHA-256 permanece uma
+evidência independente de duplicação.
+
 ## Critérios de aceitação verificáveis
 
 - **AC-DATA-001:** fonte, versão e licença são não vazias e auditáveis.
@@ -310,7 +343,6 @@ Nenhum desses artefatos existe no bootstrap.
 - versão e licença reais do dataset;
 - estrutura e partições reais da fonte;
 - algoritmo perceptual, parâmetros, limiar conservador e protocolo de revisão;
-- serializador canônico exato a ser implementado e testado;
 - decisão futura sobre publicação ou versionamento dos manifestos locais.
 
 ## Registro de decisões
@@ -336,3 +368,8 @@ Nenhum desses artefatos existe no bootstrap.
   são etapas distintas; licença ausente ou ambígua bloqueia o uso.
 - **2026-11-01:** a SPEC 01 define e valida o contrato de pré-processamento; a
   SPEC 02 o aplica com `tf.data` e deve comprovar equivalência por testes.
+- **2026-11-01:** JSON e CSV canônicos usam exclusivamente a biblioteca padrão,
+  nas convenções documentadas acima; digests são SHA-256 dos bytes exatos.
+- **2026-11-01:** `sample_id` deriva da versão imutável e do caminho POSIX
+  normalizado com componentes UTF-8 prefixados por comprimento; conteúdo é
+  identificado separadamente.

@@ -5,11 +5,12 @@ de chihuahuas e muffins com TensorFlow/Keras.
 
 ## Estado atual
 
-O **Incremento 1 da SPEC 01** implementa a estrutura mínima do pacote, o
-carregamento e a validação estrutural de `config/example.toml` e uma suíte de
-testes sem rede, GPU ou dataset real. Aquisição, processamento de imagens,
-duplicatas, particionamento, pipeline `tf.data`, modelo e treinamento continuam
-não implementados.
+Os **Incrementos 1 e 2 da SPEC 01** implementam a estrutura mínima do pacote, o
+carregamento e a validação estrutural de `config/example.toml`, serialização
+JSON/CSV canônica, digests SHA-256 e `sample_id` determinístico, com testes sem
+rede, GPU ou dataset real. Aquisição, processamento de imagens, duplicatas,
+particionamento, pipeline `tf.data`, modelo e treinamento continuam não
+implementados.
 
 O trabalho está dividido em duas especificações conectadas por um contrato de
 dados:
@@ -57,7 +58,7 @@ implementação.
 | `make help` | Exibir a interface e seu estado | Operacional |
 | `make data` | Adquirir e preparar os dados | Não implementado |
 | `make validate-data` | Validar contrato e critérios da SPEC 01 | Não implementado |
-| `make check` | Compilar módulos e executar a suíte pytest | Operacional no escopo do Incremento 1 |
+| `make check` | Compilar módulos e executar a suíte pytest | Operacional nos Incrementos 1 e 2 |
 | `make smoke-train` | Exercitar treinamento mínimo | Não implementado |
 | `make train` | Executar treinamento completo com GPU | Não implementado |
 | `make evaluate` | Avaliar o checkpoint final no teste | Não implementado |
@@ -107,6 +108,12 @@ registra decisões aprovadas e campos pendentes. O modo estrutural aceita versã
 e licença vazias para permitir testes. O modo de aquisição exige ambos os
 metadados preenchidos e rejeita o exemplo enquanto a fonte não for verificada.
 Isso não transforma o exemplo em configuração autorizada para download.
+
+JSON canônico usa UTF-8, chaves ordenadas, representação compacta, floats
+finitos e nenhum newline final. O CSV do índice tem cabeçalho fixo, quoting
+mínimo explícito, LF e linhas ordenadas por `sample_id`. O identificador combina
+versão imutável e caminho POSIX normalizado com codificação prefixada por
+comprimento; o hash do conteúdo continua separado.
 
 A única dependência direta de desenvolvimento instalada neste incremento é
 `pytest==9.2.0`, registrada no extra `dev` do `pyproject.toml`; também foram
