@@ -85,6 +85,12 @@ def _exact(field: str, value: object, expected: object) -> None:
         raise ConfigError(field, f"must be {expected!r}; received {value!r}")
 
 
+def _one_of(field: str, value: str, allowed: set[str]) -> None:
+    if value not in allowed:
+        choices = ", ".join(sorted(allowed))
+        raise ConfigError(field, f"must be one of: {choices}")
+
+
 def _parse_mode(mode: ValidationMode | str) -> ValidationMode:
     try:
         return ValidationMode(mode)
@@ -125,10 +131,30 @@ def load_config(
     _exact("project.seed", seed, 42)
 
     dataset_table = _table(document, "dataset", "dataset")
+    source = _value(dataset_table, "source", str, "dataset.source")
+    source_id = _value(dataset_table, "source_id", str, "dataset.source_id")
     handle = _value(dataset_table, "handle", str, "dataset.handle")
+    owner = _value(dataset_table, "owner", str, "dataset.owner")
     version = _value(dataset_table, "version", str, "dataset.version")
+    version_status = _value(
+        dataset_table, "version_status", str, "dataset.version_status"
+    )
+    version_note = _value(dataset_table, "version_note", str, "dataset.version_note")
     license_name = _value(dataset_table, "license", str, "dataset.license")
+    license_status = _value(
+        dataset_table, "license_status", str, "dataset.license_status"
+    )
+    license_note = _value(dataset_table, "license_note", str, "dataset.license_note")
     source_url = _value(dataset_table, "source_url", str, "dataset.source_url")
+    metadata_url = _value(
+        dataset_table, "metadata_url", str, "dataset.metadata_url"
+    )
+    metadata_checked_at = _value(
+        dataset_table,
+        "metadata_checked_at",
+        str,
+        "dataset.metadata_checked_at",
+    )
     raw_dir_text = _value(dataset_table, "raw_dir", str, "dataset.raw_dir")
     prepared_dir_text = _value(
         dataset_table, "prepared_dir", str, "dataset.prepared_dir"
@@ -140,12 +166,28 @@ def load_config(
         "dataset.preserve_valid_official_splits",
     )
     for field, value in (
+        ("dataset.source", source),
+        ("dataset.source_id", source_id),
         ("dataset.handle", handle),
+        ("dataset.owner", owner),
         ("dataset.source_url", source_url),
+        ("dataset.metadata_url", metadata_url),
+        ("dataset.metadata_checked_at", metadata_checked_at),
         ("dataset.raw_dir", raw_dir_text),
         ("dataset.prepared_dir", prepared_dir_text),
     ):
         _nonempty(field, value)
+    _exact("dataset.source", source, "kaggle")
+    _one_of(
+        "dataset.version_status",
+        version_status,
+        {"confirmed", "pending", "ambiguous"},
+    )
+    _one_of(
+        "dataset.license_status",
+        license_status,
+        {"confirmed", "pending", "ambiguous"},
+    )
     _exact("dataset.preserve_valid_official_splits", preserve_splits, True)
     raw_dir = Path(raw_dir_text)
     prepared_dir = Path(prepared_dir_text)
@@ -155,6 +197,8 @@ def load_config(
     if validation_mode is ValidationMode.ACQUISITION:
         _nonempty("dataset.version", version)
         _nonempty("dataset.license", license_name)
+        _exact("dataset.version_status", version_status, "confirmed")
+        _exact("dataset.license_status", license_status, "confirmed")
 
     split_table = _table(dataset_table, "preferred_split", "dataset.preferred_split")
     train = _value(split_table, "train", float, "dataset.preferred_split.train")
@@ -344,10 +388,19 @@ def load_config(
         schema_version=schema_version,
         seed=seed,
         dataset=DatasetConfig(
+            source=source,
+            source_id=source_id,
             handle=handle,
+            owner=owner,
             version=version,
+            version_status=version_status,
+            version_note=version_note,
             license=license_name,
+            license_status=license_status,
+            license_note=license_note,
             source_url=source_url,
+            metadata_url=metadata_url,
+            metadata_checked_at=metadata_checked_at,
             raw_dir=raw_dir,
             prepared_dir=prepared_dir,
             preserve_valid_official_splits=preserve_splits,

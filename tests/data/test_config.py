@@ -28,8 +28,12 @@ def test_example_config_is_structurally_valid() -> None:
 
     assert config.schema_version == "1.0"
     assert config.seed == 42
-    assert config.dataset.version == ""
-    assert config.dataset.license == ""
+    assert config.dataset.source == "kaggle"
+    assert config.dataset.source_id == "2733586"
+    assert config.dataset.version == "2"
+    assert config.dataset.version_status == "confirmed"
+    assert config.dataset.license == "CC0: Public Domain"
+    assert config.dataset.license_status == "ambiguous"
     assert (config.split.train, config.split.validation, config.split.test) == (
         0.70,
         0.15,
@@ -45,28 +49,37 @@ def test_default_path_is_the_example_configuration(monkeypatch: pytest.MonkeyPat
     assert load_config().seed == 42
 
 
-def test_acquisition_rejects_missing_version() -> None:
-    _assert_invalid(EXAMPLE_CONFIG, "dataset.version", mode="acquisition")
+def test_acquisition_rejects_missing_version(tmp_path: Path) -> None:
+    path = _modified_config(tmp_path, 'version = "2"', 'version = ""')
+    _assert_invalid(path, "dataset.version", mode="acquisition")
 
 
 def test_acquisition_rejects_missing_license_after_version_is_set(
     tmp_path: Path,
 ) -> None:
-    path = _modified_config(tmp_path, 'version = ""', 'version = "1"')
+    path = _modified_config(
+        tmp_path, 'license = "CC0: Public Domain"', 'license = ""'
+    )
     _assert_invalid(path, "dataset.license", mode="acquisition")
 
 
 def test_acquisition_accepts_nonempty_version_and_license(tmp_path: Path) -> None:
-    content = EXAMPLE_CONFIG.read_text(encoding="utf-8")
-    content = content.replace('version = ""', 'version = "1"')
-    content = content.replace('license = ""', 'license = "verified-license"')
-    path = tmp_path / "ready.toml"
-    path.write_text(content, encoding="utf-8", newline="\n")
+    path = _modified_config(
+        tmp_path,
+        'license_status = "ambiguous"',
+        'license_status = "confirmed"',
+    )
 
     config = load_config(path, mode=ValidationMode.ACQUISITION)
 
-    assert config.dataset.version == "1"
-    assert config.dataset.license == "verified-license"
+    assert config.dataset.version == "2"
+    assert config.dataset.license == "CC0: Public Domain"
+
+
+def test_acquisition_rejects_ambiguous_license_status() -> None:
+    _assert_invalid(
+        EXAMPLE_CONFIG, "dataset.license_status", mode="acquisition"
+    )
 
 
 @pytest.mark.parametrize(
@@ -75,8 +88,18 @@ def test_acquisition_accepts_nonempty_version_and_license(tmp_path: Path) -> Non
         ('schema_version = "1.0"', 'schema_version = "2.0"', "schema_version"),
         ("seed = 42", 'seed = "42"', "project.seed"),
         ("seed = 42", "seed = 7", "project.seed"),
-        ('version = ""', "version = 1", "dataset.version"),
-        ('license = ""', "license = true", "dataset.license"),
+        ('version = "2"', "version = 2", "dataset.version"),
+        (
+            'version_status = "confirmed"',
+            'version_status = "unknown"',
+            "dataset.version_status",
+        ),
+        ('license = "CC0: Public Domain"', "license = true", "dataset.license"),
+        (
+            'license_status = "ambiguous"',
+            'license_status = "unknown"',
+            "dataset.license_status",
+        ),
         ("train = 0.70", 'train = "0.70"', "dataset.preferred_split.train"),
         ("train = 0.70", "train = 0.69", "dataset.preferred_split.train"),
         ("validation = 0.15", "validation = 0.14", "dataset.preferred_split.validation"),
@@ -117,8 +140,8 @@ def test_incompatible_values_are_rejected(
     ("line", "field"),
     [
         ('handle = "samuelcortinhas/muffin-vs-chihuahua-image-classification"\n', "dataset.handle"),
-        ('version = ""\n', "dataset.version"),
-        ('license = ""\n', "dataset.license"),
+        ('version = "2"\n', "dataset.version"),
+        ('license = "CC0: Public Domain"\n', "dataset.license"),
         ("validation = 0.15\n", "dataset.preferred_split.validation"),
         ("channels = 3\n", "preprocessing.channels"),
     ],

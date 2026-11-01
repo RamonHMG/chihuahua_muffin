@@ -5,12 +5,12 @@ de chihuahuas e muffins com TensorFlow/Keras.
 
 ## Estado atual
 
-Os **Incrementos 1 e 2 da SPEC 01** implementam a estrutura mínima do pacote, o
+Os **Incrementos 1, 2 e 3 da SPEC 01** implementam a estrutura mínima do pacote, o
 carregamento e a validação estrutural de `config/example.toml`, serialização
-JSON/CSV canônica, digests SHA-256 e `sample_id` determinístico, com testes sem
-rede, GPU ou dataset real. Aquisição, processamento de imagens, duplicatas,
-particionamento, pipeline `tf.data`, modelo e treinamento continuam não
-implementados.
+JSON/CSV canônica, digests SHA-256, `sample_id` determinístico, proveniência e
+um adaptador KaggleHub testável sem rede. O pipeline de aquisição/preparação,
+processamento de imagens, duplicatas, particionamento, pipeline `tf.data`, modelo
+e treinamento continuam não implementados.
 
 O trabalho está dividido em duas especificações conectadas por um contrato de
 dados:
@@ -44,8 +44,11 @@ equivalência, sem manter uma definição divergente.
 - Dataset candidato:
   `samuelcortinhas/muffin-vs-chihuahua-image-classification`.
 
-A versão, a licença, a estrutura e a qualidade reais do dataset ainda não foram
-auditadas. Nenhum dado foi baixado no bootstrap.
+A API pública da Kaggle informa ID `2733586`, versão 2 e licença declarada
+`CC0: Public Domain`. Como a descrição afirma que as imagens foram obtidas do
+Google Images sem demonstrar sua cadeia de direitos, a licença permanece
+ambígua para uso e bloqueia aquisição até revisão humana. Estrutura e qualidade
+reais ainda não foram auditadas e nenhum dado foi baixado.
 
 ## Interface operacional
 
@@ -58,7 +61,7 @@ implementação.
 | `make help` | Exibir a interface e seu estado | Operacional |
 | `make data` | Adquirir e preparar os dados | Não implementado |
 | `make validate-data` | Validar contrato e critérios da SPEC 01 | Não implementado |
-| `make check` | Compilar módulos e executar a suíte pytest | Operacional nos Incrementos 1 e 2 |
+| `make check` | Compilar módulos e executar a suíte pytest | Operacional nos Incrementos 1 a 3 |
 | `make smoke-train` | Exercitar treinamento mínimo | Não implementado |
 | `make train` | Executar treinamento completo com GPU | Não implementado |
 | `make evaluate` | Avaliar o checkpoint final no teste | Não implementado |
@@ -115,9 +118,14 @@ mínimo explícito, LF e linhas ordenadas por `sample_id`. O identificador combi
 versão imutável e caminho POSIX normalizado com codificação prefixada por
 comprimento; o hash do conteúdo continua separado.
 
-A única dependência direta de desenvolvimento instalada neste incremento é
+A única dependência direta de desenvolvimento instalada no Incremento 1 é
 `pytest==9.2.0`, registrada no extra `dev` do `pyproject.toml`; também foram
 instaladas suas dependências transitivas necessárias.
+
+O Incremento 3 adiciona `kagglehub==1.0.3` como dependência direta. A versão é
+compatível com Python 3.12 e instalou somente suas dependências transitivas. O
+adaptador não é chamado por `make data`: uma futura aquisição exige licença
+liberada, versão confirmada e autorização humana explícita.
 
 Dados, credenciais e artefatos gerados ficarão fora do Git. O arquivo
 `bootstrap_prompt` é preservado e permanece disponível para versionamento como

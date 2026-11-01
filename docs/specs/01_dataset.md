@@ -104,6 +104,40 @@ otimização de limiar ou avaliação preditiva.
 Nenhum dado pode ser utilizado se a licença estiver ausente ou ambígua até que
 haja decisão humana explícita.
 
+### Estado público verificado da fonte candidata
+
+Consulta somente leitura realizada em 2026-11-01 no endpoint público da Kaggle:
+
+- fonte: Kaggle;
+- ID público: `2733586`;
+- handle: `samuelcortinhas/muffin-vs-chihuahua-image-classification`;
+- proprietário aparente: `samuelcortinhas` / Samuel Cortinhas;
+- versão corrente informada: `2`, registrada como confirmada;
+- licença declarada pela plataforma: `CC0: Public Domain`;
+- descrição pública: aproximadamente 6.000 imagens obtidas do Google Images.
+
+A declaração CC0 existe e sua evidência foi registrada, mas a descrição não
+demonstra a cadeia de direitos das imagens coletadas. Por isso, o estado da
+licença permanece `ambiguous` e bloqueia aquisição até revisão humana. Nenhum
+arquivo do dataset foi baixado nesta verificação.
+
+O endpoint usado como evidência é
+`https://www.kaggle.com/api/v1/datasets/view/samuelcortinhas/muffin-vs-chihuahua-image-classification`.
+
+### Contrato inicial do adaptador de aquisição
+
+- KaggleHub é fixado em `1.0.3` e recebe sempre um handle versionado no formato
+  `owner/dataset/versions/N`, nunca `latest`.
+- Uma chamada efetiva exige proveniência liberada e autorização humana
+  explícita separada.
+- O destino é criado de forma exclusiva. Arquivo, diretório ou link já
+  existente causa falha sem invocar o backend e sem sobrescrita.
+- O adaptador passa `force_download=False`, não transforma arquivos recebidos e
+  registra horário, ferramenta, versão, destino e contagem de arquivos.
+- Falhas produzem erro estruturado. Conteúdo parcial criado pela própria chamada
+  é removido; falha de limpeza é informada explicitamente e nunca ocultada.
+- A função de download pode ser injetada, permitindo testes completos sem rede.
+
 ### Inventário e controle de qualidade
 
 - **DATA-005:** todos os arquivos candidatos devem receber um estado: aceito,
@@ -340,7 +374,7 @@ evidência independente de duplicação.
 
 ## Critérios ainda pendentes
 
-- versão e licença reais do dataset;
+- revisão humana da aplicabilidade da licença declarada às imagens coletadas;
 - estrutura e partições reais da fonte;
 - algoritmo perceptual, parâmetros, limiar conservador e protocolo de revisão;
 - decisão futura sobre publicação ou versionamento dos manifestos locais.
@@ -373,3 +407,9 @@ evidência independente de duplicação.
 - **2026-11-01:** `sample_id` deriva da versão imutável e do caminho POSIX
   normalizado com componentes UTF-8 prefixados por comprimento; conteúdo é
   identificado separadamente.
+- **2026-11-01:** a API pública da Kaggle confirma dataset ID `2733586` e versão
+  2; a plataforma declara CC0, mas a origem descrita como Google Images mantém a
+  licença ambígua e bloqueia o download até revisão humana.
+- **2026-11-01:** KaggleHub 1.0.3 é o adaptador aprovado; usa handle versionado,
+  autorização explícita, destino exclusivo, sem sobrescrita e com limpeza ou
+  relato explícito de falhas parciais.

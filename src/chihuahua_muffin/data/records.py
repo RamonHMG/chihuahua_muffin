@@ -8,10 +8,19 @@ from pathlib import Path
 class DatasetConfig:
     """Dataset source metadata and local storage locations."""
 
+    source: str
+    source_id: str
     handle: str
+    owner: str
     version: str
+    version_status: str
+    version_note: str
     license: str
+    license_status: str
+    license_note: str
     source_url: str
+    metadata_url: str
+    metadata_checked_at: str
     raw_dir: Path
     prepared_dir: Path
     preserve_valid_official_splits: bool

@@ -4,7 +4,9 @@ version = "0.0.0"
 description = "Classificador didático de imagens de chihuahuas e muffins"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    "kagglehub==1.0.3",
+]
 
 [project.optional-dependencies]
 dev = [
