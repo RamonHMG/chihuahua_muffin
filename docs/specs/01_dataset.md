@@ -45,17 +45,19 @@ descobertos e contém motivos explícitos para cada exclusão ou pendência.
 **Aceitação:** dado um arquivo inválido, animado ou duplicado, quando a auditoria
 for executada, então ele não é descartado silenciosamente.
 
-### Cenário 3 — Produzir splits sem vazamento (P1)
+### Cenário 3 — Produzir splits reproduzíveis com limitações explícitas (P1)
 
 O treinamento precisa de subconjuntos independentes e reproduzíveis.
 
-**Teste independente:** hashes e grupos de versões da mesma fotografia não
-atravessam splits; uma nova execução com as mesmas entradas e seed produz as
-mesmas atribuições.
+**Teste independente:** amostras e grupos confirmados não atravessam splits;
+uma nova execução com as mesmas entradas e seed produz as mesmas atribuições.
+Suspeitas perceptuais não revisadas são registradas como limitação, não tratadas
+como grupos confirmados.
 
-**Aceitação:** dado um grupo de versões da mesma fotografia, quando o split for
-criado, então todas as ocorrências aceitas do grupo pertencem ao mesmo
-subconjunto.
+**Aceitação:** dado um grupo confirmado de versões da mesma fotografia, quando
+o split for criado, então todas as ocorrências aceitas do grupo pertencem ao
+mesmo subconjunto. Para a execução didática da versão 2, os pares de pHash não
+revisados não formam grupos e podem atravessar subconjuntos.
 
 ### Cenário 4 — Publicar o contrato para a SPEC 02 (P1)
 
@@ -243,8 +245,9 @@ manifesto final permanecem fora deste incremento.
 - **DATA-014:** pHash é o método candidato inicial para localizar possíveis
   versões da mesma fotografia, mas algoritmo final, parâmetros e limiar devem
   permanecer pendentes até proposta, auditoria de amostras e aprovação.
-- **DATA-015:** um grupo de versões da mesma fotografia não pode atravessar
-  treino, validação e teste.
+- **DATA-015:** um grupo confirmado de versões da mesma fotografia não pode
+  atravessar treino, validação e teste. Proximidade perceptual não revisada não
+  cria um grupo automaticamente.
 - **DATA-016:** semelhança semântica entre chihuahuas e muffins não caracteriza
   duplicação. O método não pode agrupar imagens apenas por aparência da classe.
 - **DATA-017:** distância perceptual próxima não autoriza exclusão. Candidatos
@@ -315,12 +318,99 @@ essenciais apesar de transformações técnicas. Compartilhar textura, cor, form
 classe ou dificuldade visual não é suficiente. O objetivo é impedir vazamento
 entre splits, não remover exemplos difíceis.
 
+#### Auditoria perceptual implementada no Incremento 6
+
+- o método candidato é `ImageHash==4.3.2`, `phash`, `hash_size = 8`,
+  `highfreq_factor = 4`, hash de 64 bits e distância de Hamming;
+- antes do pHash, a imagem é aberta somente para leitura, seu SHA-256 é
+  comparado ao inventário, a orientação EXIF é corrigida, RGB é preservado,
+  grayscale é replicado para RGB e RGBA é composto sobre branco;
+- somente ocorrências elegíveis após a deduplicação exata participam. Nenhum
+  arquivo, rótulo ou partição é alterado;
+- para 5.917 imagens, todos os 17.502.486 pares únicos são comparados em blocos
+  vetorizados. Isso mantém tempo `O(n²)`, necessário para a distribuição
+  completa, e memória de trabalho `O(block_size²)`;
+- a distribuição completa, distribuições por relação de partição/classe e a
+  distância do vizinho mais próximo são registradas deterministicamente;
+- pares de revisão usam IDs determinísticos, estado pendente por padrão e os
+  mesmos tipos canônicos de decisão humana do Incremento 5, estendidos para
+  ocorrências perceptuais com ou sem conflito de rótulo;
+- decisões `confirmed_duplicate`, `not_duplicate` e `uncertain` continuam
+  separadas de qualquer disposição futura. Nenhuma proximidade produz exclusão,
+  relabeling ou agrupamento definitivo automaticamente;
+- o painel HTML local referencia os originais sem copiá-los, mostra os pares
+  lado a lado e exporta um documento de decisões compatível com o validador
+  canônico. Revisor, data e justificativa são obrigatórios para exportar uma
+  decisão.
+
+#### Resultado real e faixas candidatas
+
+A auditoria calculou os 5.917 hashes e reconciliou 17.502.486 comparações. A
+cauda inferior da distribuição foi:
+
+| Distância | 0 | 2 | 4 | 6 | 8 | 10 | 12 | 14 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Pares | 300 | 101 | 8 | 11 | 17 | 69 | 213 | 1.104 |
+
+O relatório mantém 719 pares com distância até 12 para revisão e calibração:
+
+| Relação | Pares |
+|---|---:|
+| dentro de `train` | 441 |
+| entre `train` e `test` | 250 |
+| dentro de `test` | 28 |
+| **total** | **719** |
+
+Dos 719 pares, 31 têm rótulos conflitantes; todos aparecem em distância 12.
+Até distância 10 são 506 pares, sendo 324 dentro de `train`, 165 entre
+`train`/`test` e 17 dentro de `test`, sem conflito de rótulo. Esses números são
+pares de triagem, não contagens de duplicatas confirmadas.
+
+A inspeção visual amostral encontrou versões da mesma imagem em distâncias 0,
+2, 4, 6, 8 e 10, incluindo recompressão, redimensionamento, recorte e marcas
+d'água. Em distância 12 foram observados tanto pares reais quanto falsos
+positivos semanticamente ou composicionalmente semelhantes. Distância 14
+adiciona 1.104 pares, 303 conflitos de rótulo e cria um componente espúrio de
+133 imagens; por isso não é proposta como teto de revisão principal.
+
+As faixas candidatas submetidas à decisão humana são:
+
+1. `0–10`: fila conservadora principal, ainda sem confirmação automática;
+2. `12`: faixa de fronteira para calibrar falsos positivos e possíveis falsos
+   negativos da fila principal;
+3. `14`: controle negativo amostral, não recomendado como limiar candidato.
+
+O campo `perceptual_threshold` permanece vazio e a configuração registra
+`audited_candidate_pending_human_approval`. O teto 12 do relatório serve para
+montar a fila local, não é um limiar aprovado de deduplicação.
+
+Artefatos locais não finais em
+`data/audit/kaggle-2733586-v2-perceptual/`:
+
+- `perceptual_audit.json`, SHA-256
+  `78a5da381d6561cce8faf71bb3ed401bbeed8c999b35a1789454108be6a1ee21`;
+- `perceptual_human_decisions.json`, ainda vazio, SHA-256
+  `aaa627f05b4907a0679fa1cd5e09f79b986841060ce329fccf2eb9d813494dce`;
+- `validation_feasibility.json`, SHA-256
+  `3e9546d23845d092d49c27ea526b4798cd2e6349a3f345d489b41aa394989084`;
+- `review_panel.html`, SHA-256
+  `d44c6bacc33546c0fa474d1c5c462f941549c5fe9b5812289257465b032c0e98`.
+
+Quantitativamente, as classes continuam com suporte amplo para uma validação
+de aproximadamente 15% de `train`. Após revisar o Incremento 6, o responsável
+escolheu o Cenário A para este exercício didático sem exigir a revisão manual
+dos 719 pares. Nenhum desses pares foi convertido em duplicata confirmada,
+grupo, exclusão ou alteração de rótulo. A decisão aceita conscientemente que
+versões da mesma fotografia podem atravessar os conjuntos e limitar a
+interpretação das métricas de generalização.
+
 ### Particionamento
 
 - **DATA-019:** antes de dividir, a implementação deve inspecionar e registrar
   partições preexistentes.
 - **DATA-020:** partições oficiais de treino, validação e teste devem ser
-  preservadas se forem consistentes e livres de vazamento.
+  preservadas. Limitações conhecidas de independência devem ser resolvidas ou
+  aceitas por decisão humana explícita antes da liberação experimental.
 - **DATA-021:** se houver somente treino e teste oficiais, o teste deve ser
   preservado e a validação deve ser derivada exclusivamente do treino.
 - **DATA-022:** sem partições oficiais utilizáveis, deve ser aplicado split
@@ -333,21 +423,16 @@ entre splits, não remover exemplos difíceis.
 - **DATA-026:** conflitos que não possam ser resolvidos com segurança exigem
   revisão humana.
 
-Para a versão 2 deste dataset foi decidido preservar as partições originais
-`train` e `test`. Elas não serão reconstruídas para buscar as proporções
-preferenciais. Se uma validação confiável for aprovada, ela será extraída
-exclusivamente de `train`, com aproximadamente 15% dessa partição, seed 42,
-estratificação por classe e indivisibilidade dos grupos da mesma fotografia.
+Para a versão 2 deste dataset foi escolhido definitivamente o **Cenário A**. As
+partições originais `train` e `test` são preservadas e não são reconstruídas.
+A validação é extraída exclusivamente de `train`, com 15% por classe, seed 42
+e estratificação. O `test` original permanece integral e reservado.
 
-A decisão entre os cenários abaixo permanece pendente até concluir as auditorias
-exata e perceptual:
-
-- **Cenário A:** criar validação somente a partir de `train`, preservando `test`;
-- **Cenário B:** manter apenas `train` e `test`, sem usar o teste para seleção ou
-  repetição oportunista de experimentos.
-
-O Incremento 5 não cria splits. A implementação de eventual validação pertence
-somente ao Incremento 7, após decisão humana baseada também no Incremento 6.
+A escolha é uma simplificação didática consciente. Os 719 pares candidatos de
+pHash não foram revisados e não formaram grupos; portanto, não são usados para
+excluir, relabelar ou orientar atribuições. A possível sobreposição entre os
+conjuntos não bloqueia este experimento, mas limita futuras alegações de
+generalização.
 
 ### Resultado da deduplicação exata e viabilidade preliminar
 
@@ -360,13 +445,11 @@ bloqueios. Permanecem elegíveis nesta etapa:
 | `train` | 2.559 | 2.174 | 4.733 |
 | `test` | 640 | 544 | 1.184 |
 
-Uma estimativa aritmética de 15% de cada classe de `train` corresponderia a 384
-chihuahuas e 326 muffins, total de 710 imagens, deixando aproximadamente 2.175 e
-1.848 para treinamento. Esses números não atribuem amostras e não constituem um
-split. A análise exata não identificou impedimento quantitativo preliminar, mas
-não demonstra independência entre as partições: versões comprimidas,
-redimensionadas ou alteradas da mesma fotografia exigem a auditoria perceptual
-do Incremento 6. A decisão A/B continua explicitamente adiada.
+Uma proporção de 15% de cada classe de `train` corresponde a 384 chihuahuas e
+326 muffins, total de 710 imagens, deixando 2.175 e 1.848 para treinamento. A
+análise exata não identificou impedimento quantitativo, mas não demonstra
+independência entre as partições: versões comprimidas, redimensionadas ou
+alteradas da mesma fotografia permanecem uma limitação perceptual.
 
 Artefatos locais não finais em `data/audit/kaggle-2733586-v2-exact/`:
 
@@ -376,6 +459,43 @@ Artefatos locais não finais em `data/audit/kaggle-2733586-v2-exact/`:
   `aaa627f05b4907a0679fa1cd5e09f79b986841060ce329fccf2eb9d813494dce`;
 - `validation_feasibility.json`, SHA-256
   `e53bcedb6cc313f4b33f9c912788f770b34ffe56149513267c2f09f91a4593e3`.
+
+### Particionamento implementado no Incremento 7
+
+O algoritmo `stratified_sha256_rank_v1` considera somente amostras elegíveis
+após a deduplicação exata. O `inventory.json` anterior é carregado com validação
+estrita de esquema, versão, IDs, caminhos e metadados, sem depender de nova
+varredura dos originais. Em cada classe do `train` original, ordena os
+`sample_id` por uma chave SHA-256 formada por domínio versionado, seed 42 e o
+identificador com comprimento explícito. Os primeiros 15%, arredondados ao
+inteiro mais próximo e sem esvaziar nenhum lado, formam a validação. Isso torna
+a escolha independente da ordem de leitura e não requer nova dependência.
+
+Contagens efetivas:
+
+| Split lógico | Chihuahua | Muffin | Total |
+|---|---:|---:|---:|
+| `train` | 2.175 | 1.848 | 4.023 |
+| `validation` | 384 | 326 | 710 |
+| `test` | 640 | 544 | 1.184 |
+| **total** | **3.199** | **2.718** | **5.917** |
+
+Os 1.184 IDs de `test` são exatamente os IDs aceitos da partição original; a
+validação contém somente IDs do `train` original. ID, caminho, rótulo, partição
+original e SHA-256 são preservados em cada atribuição. Nenhuma imagem foi
+movida, excluída ou modificada.
+
+Artefatos locais não finais em
+`data/audit/kaggle-2733586-v2-splits/`:
+
+- `split_assignments.json`, SHA-256
+  `e37e955f8c3da8d74e56d4a26511de0411e0e9c6f3efffbfd549e5ab46ef727e`;
+- `split_report.json`, SHA-256
+  `70ef339bbbf77d552205e4a41f89d52a7c3c35f42d6dddb0454ec8b90a3352c3`.
+
+O relatório registra a escolha A, configuração, contagens, preservação do teste
+e a decisão de não usar os 719 candidatos perceptuais para agrupamento ou
+atribuição. Ele é uma entrada do futuro manifesto, não o manifesto final.
 
 ### Pré-processamento
 
@@ -416,11 +536,11 @@ permanece responsabilidade futura da SPEC 02.
 3. Formar candidatos a grupos de duplicatas e resolver revisões necessárias.
 4. Verificar vazamento nas partições oficiais.
 5. Preservar as partições originais `train` e `test` desta versão.
-6. Após a auditoria perceptual, decidir humanamente entre Cenário A e B.
-7. Somente no Incremento 7, se o Cenário A for aprovado, extrair aproximadamente
-   15% de `train` para validação, com seed 42, estratificação por classe e
-   indivisibilidade dos grupos; se o Cenário B for aprovado, não criar validação.
-8. Registrar proporções efetivas, grupos, decisões e justificativa.
+6. Registrar a decisão humana pelo Cenário A e a aceitação da limitação
+   perceptual não revisada.
+7. No Incremento 7, extrair 15% por classe de `train` para validação, com seed
+   42, estratificação e indivisibilidade dos grupos confirmados.
+8. Registrar proporções efetivas, atribuições, decisões e justificativa.
 
 ## Contrato de dados
 
@@ -431,9 +551,9 @@ Artefatos futuros previstos:
   resumo do dataset preparado;
 - `data/prepared/quality_report.json`: ocorrências e decisões de qualidade.
 
-Os artefatos finais acima ainda não existem. Os Incrementos 4 e 5 podem gerar,
-sob `data/`, somente artefatos de auditoria claramente identificados como não
-finais.
+Os artefatos finais acima ainda não existem. Os Incrementos 4, 5, 6 e 7 podem
+gerar, sob `data/`, somente artefatos de auditoria claramente identificados como
+não finais.
 
 ### Campos mínimos do índice
 
@@ -518,15 +638,17 @@ evidência independente de duplicação.
   hash e exatamente um split.
 - **AC-DATA-005:** o mapeamento é exatamente chihuahua 0 e muffin 1.
 - **AC-DATA-006:** nenhuma SHA-256 aceita aparece mais de uma vez.
-- **AC-DATA-007:** nenhum `duplicate_group_id` aceito atravessa splits.
+- **AC-DATA-007:** nenhum `duplicate_group_id` confirmado e aceito atravessa
+  splits; candidatos perceptuais não revisados não recebem esse identificador.
 - **AC-DATA-008:** recriar o split com as mesmas entradas e seed produz a mesma
   atribuição.
 - **AC-DATA-009:** as proporções e a justificativa de desvios estão registradas.
 - **AC-DATA-010:** o contrato de entrada é RGB 128 × 128 × 3, padding branco,
   bilinear e `[0, 1]`, com padding normalizado igual a `(1.0, 1.0, 1.0)`.
 - **AC-DATA-011:** digests do índice e relatório correspondem ao manifesto.
-- **AC-DATA-012:** nenhuma revisão humana bloqueante permanece sem decisão na
-  versão liberada para treinamento completo.
+- **AC-DATA-012:** nenhuma revisão humana exata bloqueante permanece sem decisão
+  na versão liberada. A decisão humana documentada pode aceitar suspeitas
+  perceptuais não revisadas como limitação de um experimento didático.
 - **AC-DATA-013:** o manifesto declara `schema_version = "1.0"` e seu digest é
   reproduzível independentemente da ordem original das chaves.
 
@@ -546,10 +668,9 @@ evidência independente de duplicação.
 ## Critérios ainda pendentes
 
 - eventual revisão jurídica adicional da aplicabilidade da licença declarada;
-- validação definitiva das partições reais contra duplicatas perceptuais e
-  vazamento;
-- algoritmo perceptual, parâmetros, limiar conservador e protocolo de revisão;
-- decisão definitiva entre Cenário A e B após a auditoria perceptual;
+- eventual revisão futura dos candidatos perceptuais, sem bloquear o
+  experimento didático atual;
+- eventual aprovação futura de um limiar perceptual para outro experimento;
 - decisão futura sobre publicação ou versionamento dos manifestos locais.
 
 ## Registro de decisões
@@ -598,15 +719,32 @@ evidência independente de duplicação.
 - **2026-11-01:** a versão 2 foi adquirida localmente e revelou 5.917 JPEGs nas
   partições `train` e `test`, além de um marcador KaggleHub não-imagem; a
   auditoria inicial não encontrou corrupção, animações ou SHA-256 repetidos.
-- **2026-11-01:** as partições originais `train` e `test` serão preservadas; uma
-  eventual validação conterá aproximadamente 15% somente de `train` e será
-  implementada apenas no Incremento 7, caso aprovada após a auditoria perceptual.
+- **2026-11-01:** as partições originais `train` e `test` são preservadas; a
+  validação contém 15% por classe somente de `train` e foi implementada no
+  Incremento 7 com seed 42.
 - **2026-11-01:** deduplicação exata usa grupos SHA-256 determinísticos, prefere
   a ocorrência de `test` em grupos de mesmo rótulo entre partições, mantém
   conflitos de rótulo bloqueados e nunca remove originais fisicamente.
 - **2026-11-01:** decisões humanas distinguem conclusão sobre duplicação de
   disposição das amostras e usam os estados `confirmed_duplicate`,
   `not_duplicate` e `uncertain` em JSON canônico local.
-- **2026-11-01:** a auditoria exata real encontrou zero grupos e não impõe
-  obstáculo quantitativo preliminar à validação candidata, mas a decisão entre
-  os Cenários A e B permanece adiada até a análise perceptual.
+- **2026-11-01:** a auditoria exata real encontrou zero grupos e não impôs
+  obstáculo quantitativo preliminar à validação candidata; a decisão A/B foi
+  então adiada até a análise perceptual.
+- **2026-11-01:** ImageHash 4.3.2 com pHash de 64 bits (`hash_size = 8`,
+  `highfreq_factor = 4`) foi implementado somente para triagem; comparações são
+  vetorizadas em blocos e nenhuma distância confirma ou exclui amostras.
+- **2026-11-01:** a auditoria perceptual comparou 17.502.486 pares e gerou uma
+  fila ampla de 719 pares até distância 12. A faixa principal proposta é 0–10;
+  distância 12 é fronteira de calibração e 14 não é recomendada devido ao forte
+  crescimento de falsos candidatos.
+- **2026-11-01:** o Incremento 6 recomendou o Cenário A condicionado a revisão
+  humana e agrupamento; o responsável posteriormente dispensou essa revisão
+  para o experimento didático, sem transformar suspeitas em duplicatas.
+- **2026-11-01:** o Cenário A foi escolhido definitivamente: 15% por classe do
+  `train` original forma a validação, seed 42, e o `test` original permanece
+  integral. Os 719 pares perceptuais não revisados não alteram atribuições.
+- **2026-11-01:** o algoritmo `stratified_sha256_rank_v1` ordena por chave
+  SHA-256 derivada de seed e `sample_id`, garantindo estabilidade sob mudanças
+  na ordem de leitura. A possibilidade de sobreposição entre conjuntos é uma
+  limitação metodológica aceita, não evidência de ausência de vazamento.

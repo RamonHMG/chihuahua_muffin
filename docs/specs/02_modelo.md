@@ -30,11 +30,11 @@ backpropagation, métrica e salvamento em tempo limitado.
 **Aceitação:** CPU só é aceita por opção explícita; o resultado não é apresentado
 como evidência de qualidade ou treinamento completo.
 
-### Cenário 3 — Treinar com GPU conforme o contrato de validação (P1)
+### Cenário 3 — Treinar com GPU usando validação (P1)
 
 **Teste independente:** sem GPU TensorFlow utilizável, o treinamento completo
-falha; com GPU, registra o dispositivo e segue exatamente o cenário A ou B
-declarado pelo manifesto da SPEC 01.
+falha; com GPU, registra o dispositivo e consome exatamente os conjuntos de
+treino, validação e teste declarados pelo manifesto da SPEC 01.
 
 ### Cenário 4 — Avaliar no teste independente (P1)
 
@@ -125,31 +125,26 @@ definição publicada e os pipelines de treino, validação, teste e inferência
 
 ### Treinamento e seleção
 
-A SPEC 01 preservará o `test` original e decidirá, após as auditorias exata e
-perceptual, entre dois modos mutuamente exclusivos. A SPEC 02 não pode escolher
-o modo nem criar validação:
+A SPEC 01 escolheu definitivamente o **Cenário A** para a versão 2: treino e
+validação derivam do `train` original, enquanto o `test` original é preservado.
+A SPEC 02 deve consumir os três conjuntos sem reparticionar, aplicar early
+stopping e selecionar o checkpoint pelo menor `val_loss`.
 
-- **Cenário A — com validação confiável:** usa a validação extraída somente do
-  `train` original; aplica early stopping e checkpoint pelo menor `val_loss`;
-- **Cenário B — sem validação confiável:** usa todos os exemplos elegíveis do
-  `train` original durante 15 épocas fixas; não executa early stopping baseado
-  em validação, não seleciona checkpoint por métrica e avalia o modelo da última
-  época. Configuração, limiar e decisões de treinamento devem estar congelados
-  antes do único uso avaliativo do teste.
-
-Em ambos os cenários, o teste não participa de escolha, ajuste ou decisão de
-repetir experimentos. Seus resultados não podem ser usados para tentar novas
-configurações até obter desempenho melhor.
+O Cenário B permanece documentado apenas como contrato histórico/condicional e
+não é aplicável ao manifesto desta versão. O teste não participa de escolha,
+ajuste ou decisão de repetir experimentos. Seus resultados não podem ser usados
+para tentar novas configurações até obter desempenho melhor.
 
 - **MODEL-017:** máximo inicial de 15 épocas.
-- **MODEL-018:** somente no Cenário A, `EarlyStopping` monitora `val_loss`, com
+- **MODEL-018:** `EarlyStopping` monitora `val_loss`, com
   `patience = 3`, `min_delta = 0.001` e restauração dos melhores pesos.
-- **MODEL-019:** somente no Cenário A, um mecanismo explícito de checkpoint, monitorando `val_loss`
+- **MODEL-019:** um mecanismo explícito de checkpoint, monitorando `val_loss`
   em modo `min` e com salvamento somente do melhor, deve persistir o modelo do
   menor valor absoluto observado, independentemente do `min_delta` do
   `EarlyStopping`. Época e valor devem ser registrados.
-- **MODEL-019A:** no Cenário B, o treinamento executa 15 épocas fixas, não usa
-  callbacks ou métricas de validação para parada/seleção e salva o modelo da
+- **MODEL-019A:** em um manifesto futuro que selecionasse o Cenário B, o
+  treinamento executaria 15 épocas fixas, não usaria
+  callbacks ou métricas de validação para parada/seleção e salvaria o modelo da
   última época como único modelo elegível para avaliação.
 - **MODEL-020:** seleção de checkpoint e hiperparâmetros não pode consultar o
   teste.
@@ -158,10 +153,11 @@ configurações até obter desempenho melhor.
 - **MODEL-022:** valores iniciais aprovados: batch size 32, Adam, learning rate
   0.001 e Binary Crossentropy. São configurações iniciais, não resultados de
   otimização.
-- **MODEL-022A:** no Cenário A, a avaliação final deve carregar explicitamente o checkpoint
+- **MODEL-022A:** a avaliação final deve carregar explicitamente o checkpoint
   salvo pelo menor `val_loss`; os pesos restaurados pelo `EarlyStopping` não o
   substituem como fonte da avaliação.
-- **MODEL-022B:** no Cenário B, a avaliação final deve carregar explicitamente o
+- **MODEL-022B:** em um manifesto futuro com Cenário B, a avaliação final deve
+  carregar explicitamente o
   modelo da última época e o manifesto deve registrar que não houve validação,
   early stopping nem seleção de checkpoint.
 
@@ -180,9 +176,9 @@ configurações até obter desempenho melhor.
   ser registrado; o teste não pode participar.
 - **MODEL-027:** o teste deve permanecer reservado até a definição de modelo,
   hiperparâmetros, checkpoint e limiar.
-- **MODEL-028:** no Cenário A, curvas de loss e métricas devem distinguir treino
-  e validação; no Cenário B, somente curvas de treino podem ser geradas e devem
-  ser identificadas sem sugerir a existência de validação.
+- **MODEL-028:** curvas de loss e métricas devem distinguir treino e validação.
+  Em um manifesto futuro com Cenário B, somente curvas de treino poderiam ser
+  geradas e deveriam ser identificadas sem sugerir validação.
 
 ## Baseline e qualidade preditiva
 
@@ -225,9 +221,9 @@ O manifesto deve registrar no mínimo:
   efetivamente usado;
 - arquitetura e número de parâmetros;
 - épocas solicitadas e executadas, motivo de parada e histórico;
-- cenário A/B recebido da SPEC 01 e evidência de que o modo foi respeitado;
-- checkpoint selecionado e `val_loss` no Cenário A, ou modelo da última época
-  no Cenário B, sempre com digest;
+- Cenário A recebido da SPEC 01 e evidência de que treino, validação e teste
+  foram consumidos sem reparticionamento;
+- checkpoint selecionado pelo menor `val_loss`, sempre com digest;
 - limiar efetivo;
 - métricas finais e caminhos/digests dos artefatos;
 - limitações e fontes conhecidas de não determinismo.
@@ -242,14 +238,14 @@ O manifesto deve registrar no mínimo:
 - **AC-MODEL-004:** `make train` falha sem GPU TensorFlow utilizável e não faz
   fallback silencioso.
 - **AC-MODEL-005:** uso de CPU no smoke requer autorização explícita registrada.
-- **AC-MODEL-006:** no Cenário A, o checkpoint é selecionado pelo menor
-  `val_loss`, sem teste.
-- **AC-MODEL-006A:** no Cenário A, a avaliação carrega o checkpoint persistido e registra sua
+- **AC-MODEL-006:** o checkpoint é selecionado pelo menor `val_loss`, sem teste.
+- **AC-MODEL-006A:** a avaliação carrega o checkpoint persistido e registra sua
   época e `val_loss`, sem confundi-lo com a regra `min_delta` do early stopping.
-- **AC-MODEL-006B:** no Cenário B, não existe seleção por validação; são
-  executadas 15 épocas fixas e a avaliação carrega o modelo da última época.
-- **AC-MODEL-007:** quando aplicável no Cenário A, early stopping usa os valores
-  aprovados e restaura os melhores pesos; no Cenário B ele está ausente.
+- **AC-MODEL-006B:** não aplicável à versão 2. Em um futuro Cenário B, não
+  existiria seleção por validação; seriam executadas 15 épocas fixas e a
+  avaliação carregaria o modelo da última época.
+- **AC-MODEL-007:** early stopping usa os valores aprovados e restaura os
+  melhores pesos.
 - **AC-MODEL-008:** teste é avaliado somente após congelar checkpoint,
   configuração e limiar.
 - **AC-MODEL-009:** métricas exigidas, matriz de confusão e curvas são geradas
@@ -279,7 +275,6 @@ O manifesto deve registrar no mínimo:
 - versão compatível de TensorFlow/Keras e requisitos CUDA/cuDNN;
 - disponibilidade da GPU RTX 5070 para o TensorFlow;
 - formato/versionamento final do manifesto de execução;
-- decisão da SPEC 01 entre os Cenários A e B após auditoria perceptual;
 - baseline medido e meta mínima de qualidade preditiva.
 
 ## Registro de decisões
@@ -305,7 +300,9 @@ O manifesto deve registrar no mínimo:
   `min_delta` 0.001 pertence somente ao critério do EarlyStopping.
 - **2026-11-01:** métricas com denominador nulo adotam `zero_division = 0` e
   registram suporte e matriz de confusão.
-- **2026-11-01:** a existência de validação é decisão da SPEC 01 após auditoria
-  exata e perceptual. No Cenário A permanecem early stopping e checkpoint por
-  `val_loss`; no Cenário B são 15 épocas fixas, sem seleção por validação, e o
-  modelo da última época é avaliado uma única vez no teste após congelamento.
+- **2026-11-01:** a SPEC 01 escolheu definitivamente o Cenário A para a versão
+  2. A SPEC 02 consumirá treino, validação e teste; usará no máximo 15 épocas,
+  early stopping em `val_loss` e o checkpoint de menor `val_loss`.
+- **2026-11-01:** o `test` original será avaliado somente depois de congelar
+  modelo, hiperparâmetros, checkpoint e limiar; suspeitas perceptuais aceitas
+  como limitação não autorizam uso do teste para seleção.

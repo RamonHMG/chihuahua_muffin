@@ -9,6 +9,7 @@ from chihuahua_muffin.data.inventory import (
     AuditStatus,
     InventoryError,
     inventory_dataset,
+    load_initial_inventory,
     sha256_file,
     write_initial_audit,
 )
@@ -212,6 +213,46 @@ def test_initial_audit_writes_canonical_local_artifacts_without_overwrite(
     assert not inventory_path.read_bytes().endswith(b"\n")
     with pytest.raises(InventoryError, match="already exists"):
         write_initial_audit(result, destination)
+
+
+def test_initial_inventory_artifact_can_be_consumed_without_reinventory(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    original = _save(source / "train/chihuahua/a.png")
+    duplicate = tmp_path / "source/test/chihuahua/b.png"
+    duplicate.parent.mkdir(parents=True)
+    shutil.copyfile(original, duplicate)
+    result = inventory_dataset(source, dataset_version_id=VERSION_ID)
+    inventory_path, _ = write_initial_audit(result, tmp_path / "audit")
+
+    loaded = load_initial_inventory(
+        inventory_path,
+        expected_dataset_version_id=VERSION_ID,
+    )
+
+    assert loaded == result
+
+
+def test_initial_inventory_loader_rejects_wrong_version_or_sample_id(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    _save(source / "train/muffin/image.png")
+    result = inventory_dataset(source, dataset_version_id=VERSION_ID)
+    inventory_path, _ = write_initial_audit(result, tmp_path / "audit")
+
+    with pytest.raises(InventoryError, match="different version"):
+        load_initial_inventory(
+            inventory_path,
+            expected_dataset_version_id="other-version",
+        )
+
+    document = json.loads(inventory_path.read_text(encoding="utf-8"))
+    document["records"][0]["sample_id"] = "0" * 64
+    inventory_path.write_text(json.dumps(document), encoding="utf-8")
+    with pytest.raises(InventoryError, match="does not match its path"):
+        load_initial_inventory(inventory_path)
 
 
 def test_inventory_rejects_missing_root(tmp_path: Path) -> None:

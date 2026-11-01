@@ -24,10 +24,12 @@ class ReviewDecisionState(StrEnum):
 
 
 class ReviewOccurrenceType(StrEnum):
-    """Exact-duplicate occurrence types implemented in Increment 5."""
+    """Duplicate occurrence types supported by the human-review registry."""
 
     EXACT_SAME_LABEL = "exact_duplicate_same_label"
     EXACT_LABEL_CONFLICT = "exact_duplicate_label_conflict"
+    PERCEPTUAL_SAME_LABEL = "perceptual_duplicate_same_label"
+    PERCEPTUAL_LABEL_CONFLICT = "perceptual_duplicate_label_conflict"
 
 
 _DECISION_FIELDS = {

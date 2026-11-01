@@ -482,7 +482,7 @@ def load_config(
     pending_duplicate_policy: dict[str, object] = {
         "exact_hash": "sha256",
         "perceptual_method": "phash",
-        "perceptual_method_status": "proposed_pending_audit",
+        "perceptual_method_status": "audited_candidate_pending_human_approval",
         "perceptual_candidate_hash_size": 8,
         "perceptual_candidate_highfreq_factor": 4,
         "perceptual_threshold": "",

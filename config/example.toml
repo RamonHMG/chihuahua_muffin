@@ -35,8 +35,8 @@ redistribution_allowed = false
 
 [dataset.preferred_split]
 # Política genérica de fallback para fontes sem partições utilizáveis.
-# Na versão 2, train/test originais são preservados; eventual validação de ~15%
-# de train depende dos Incrementos 6 e 7 e ainda não foi criada.
+# Não se aplica à versão 2: train/test originais são preservados e 15% de cada
+# classe do train original foi atribuído à validação no Incremento 7.
 train = 0.70
 validation = 0.15
 test = 0.15
@@ -68,11 +68,13 @@ materialize_resized_images = false
 
 [duplicates]
 exact_hash = "sha256"
-# pHash é candidato; configuração e limiar dependem da auditoria e aprovação.
+# pHash permanece candidato sem limiar aprovado. Sua revisão manual foi
+# dispensada somente para liberar o experimento didático do Incremento 7.
 perceptual_method = "phash"
-perceptual_method_status = "proposed_pending_audit"
+perceptual_method_status = "audited_candidate_pending_human_approval"
 perceptual_candidate_hash_size = 8
 perceptual_candidate_highfreq_factor = 4
+# A auditoria propõe faixas de revisão, não um limiar automático aprovado.
 perceptual_threshold = ""
 automatic_removal_by_perceptual_distance = false
 require_human_review_for_conflicting_labels = true

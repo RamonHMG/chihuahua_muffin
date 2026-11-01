@@ -6,6 +6,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from enum import StrEnum
 from hashlib import sha256
+import json
 from pathlib import Path
 import warnings
 
@@ -220,6 +221,59 @@ def write_initial_audit(result: InventoryResult, destination: str | Path) -> tup
     inventory_path.write_bytes(canonical_json_bytes(result.inventory_payload()))
     quality_path.write_bytes(canonical_json_bytes(result.quality_payload()))
     return inventory_path, quality_path
+
+
+def load_initial_inventory(
+    path: str | Path,
+    *,
+    expected_dataset_version_id: str | None = None,
+) -> InventoryResult:
+    """Load and strictly validate an Increment 4 initial inventory artifact."""
+
+    inventory_path = Path(path)
+    try:
+        document = json.loads(inventory_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise InventoryError(f"cannot read initial inventory: {error}") from error
+    if type(document) is not dict or set(document) != {
+        "artifact_type",
+        "artifact_version",
+        "dataset_version_id",
+        "records",
+    }:
+        raise InventoryError("initial inventory artifact fields do not match schema")
+    if document["artifact_type"] != "initial_inventory":
+        raise InventoryError("unexpected initial inventory artifact_type")
+    if document["artifact_version"] != "1.0":
+        raise InventoryError("unsupported initial inventory artifact_version")
+    dataset_version_id = _required_text(
+        document["dataset_version_id"], "dataset_version_id"
+    )
+    if (
+        expected_dataset_version_id is not None
+        and dataset_version_id != expected_dataset_version_id
+    ):
+        raise InventoryError("initial inventory belongs to a different version")
+    if type(document["records"]) is not list:
+        raise InventoryError("initial inventory records must be a JSON list")
+
+    records = tuple(
+        _record_from_json(value, dataset_version_id=dataset_version_id)
+        for value in document["records"]
+    )
+    relative_paths = [record.relative_path for record in records]
+    sample_ids = [record.sample_id for record in records]
+    if relative_paths != sorted(relative_paths):
+        raise InventoryError("initial inventory records are not in canonical path order")
+    if len(relative_paths) != len(set(relative_paths)):
+        raise InventoryError("initial inventory contains duplicate relative paths")
+    if len(sample_ids) != len(set(sample_ids)):
+        raise InventoryError("initial inventory contains duplicate sample IDs")
+    return InventoryResult(
+        dataset_version_id=dataset_version_id,
+        records=records,
+        exact_duplicate_candidates=_find_exact_duplicate_candidates(records),
+    )
 
 
 def _inspect_file(
@@ -464,3 +518,168 @@ def _find_exact_duplicate_candidates(
             )
         )
     return tuple(candidates)
+
+
+_INVENTORY_RECORD_FIELDS = {
+    "sample_id",
+    "relative_path",
+    "sha256",
+    "byte_size",
+    "class_name",
+    "class_id",
+    "source_partition",
+    "source_partition_name",
+    "format",
+    "width",
+    "height",
+    "mode",
+    "channels",
+    "is_animated",
+    "exif_orientation",
+    "exif_transpose_required",
+    "color_conversion",
+    "status",
+    "reasons",
+}
+
+
+def _record_from_json(
+    value: object,
+    *,
+    dataset_version_id: str,
+) -> InventoryRecord:
+    if type(value) is not dict or set(value) != _INVENTORY_RECORD_FIELDS:
+        raise InventoryError("initial inventory record fields do not match schema")
+    sample_id = _required_text(value["sample_id"], "sample_id")
+    relative_path = _required_text(value["relative_path"], "relative_path")
+    if sample_id != make_sample_id(dataset_version_id, relative_path):
+        raise InventoryError("initial inventory sample_id does not match its path")
+    file_hash = _optional_text(value["sha256"], "sha256", empty_allowed=True)
+    if file_hash and (
+        len(file_hash) != 64
+        or any(character not in "0123456789abcdef" for character in file_hash)
+    ):
+        raise InventoryError("initial inventory SHA-256 is invalid")
+    byte_size = _required_integer(value["byte_size"], "byte_size", minimum=0)
+    class_name = _optional_text(value["class_name"], "class_name")
+    class_id = _optional_integer(value["class_id"], "class_id", minimum=0)
+    if class_name is None:
+        if class_id is not None:
+            raise InventoryError("class_id must be null when class_name is null")
+    elif class_name not in CLASS_IDS or class_id != CLASS_IDS[class_name]:
+        raise InventoryError("class_name and class_id are inconsistent")
+    inferred_class, _ = _infer_class(relative_path)
+    if class_name != inferred_class:
+        raise InventoryError("class_name is inconsistent with relative_path")
+    source_partition = _optional_text(
+        value["source_partition"], "source_partition"
+    )
+    if source_partition not in {None, "train", "validation", "test"}:
+        raise InventoryError("source_partition is unknown")
+    source_partition_name = _optional_text(
+        value["source_partition_name"], "source_partition_name"
+    )
+    inferred_partition, inferred_partition_name, _ = _infer_partition(relative_path)
+    if (
+        source_partition != inferred_partition
+        or source_partition_name != inferred_partition_name
+    ):
+        raise InventoryError("source partition is inconsistent with relative_path")
+    image_format = _optional_text(value["format"], "format")
+    width = _optional_integer(value["width"], "width", minimum=1)
+    height = _optional_integer(value["height"], "height", minimum=1)
+    mode = _optional_text(value["mode"], "mode")
+    channels = _optional_integer(value["channels"], "channels", minimum=1)
+    is_animated = _optional_boolean(value["is_animated"], "is_animated")
+    exif_orientation = _optional_integer(
+        value["exif_orientation"], "exif_orientation", minimum=1
+    )
+    if exif_orientation is not None and exif_orientation > 8:
+        raise InventoryError("exif_orientation must be between 1 and 8")
+    exif_transpose_required = _required_boolean(
+        value["exif_transpose_required"], "exif_transpose_required"
+    )
+    color_conversion = _optional_text(
+        value["color_conversion"], "color_conversion"
+    )
+    try:
+        status = AuditStatus(value["status"])
+    except (TypeError, ValueError) as error:
+        raise InventoryError("initial inventory status is unknown") from error
+    reasons_value = value["reasons"]
+    if type(reasons_value) is not list or any(
+        type(reason) is not str or not reason for reason in reasons_value
+    ):
+        raise InventoryError("initial inventory reasons must be a list of strings")
+    reasons = tuple(reasons_value)
+    if reasons != tuple(sorted(set(reasons))):
+        raise InventoryError("initial inventory reasons are not canonical")
+    return InventoryRecord(
+        sample_id=sample_id,
+        relative_path=relative_path,
+        sha256=file_hash or "",
+        byte_size=byte_size,
+        class_name=class_name,
+        class_id=class_id,
+        source_partition=source_partition,
+        source_partition_name=source_partition_name,
+        image_format=image_format,
+        width=width,
+        height=height,
+        mode=mode,
+        channels=channels,
+        is_animated=is_animated,
+        exif_orientation=exif_orientation,
+        exif_transpose_required=exif_transpose_required,
+        color_conversion=color_conversion,
+        status=status,
+        reasons=reasons,
+    )
+
+
+def _required_text(value: object, field: str) -> str:
+    if type(value) is not str or not value:
+        raise InventoryError(f"{field} must be a non-empty string")
+    return value
+
+
+def _optional_text(
+    value: object,
+    field: str,
+    *,
+    empty_allowed: bool = False,
+) -> str | None:
+    if value is None:
+        return None
+    if type(value) is not str or (not value and not empty_allowed):
+        raise InventoryError(f"{field} must be null or a valid string")
+    return value
+
+
+def _required_integer(value: object, field: str, *, minimum: int) -> int:
+    if type(value) is not int or value < minimum:
+        raise InventoryError(f"{field} must be an integer >= {minimum}")
+    return value
+
+
+def _optional_integer(
+    value: object,
+    field: str,
+    *,
+    minimum: int,
+) -> int | None:
+    if value is None:
+        return None
+    return _required_integer(value, field, minimum=minimum)
+
+
+def _required_boolean(value: object, field: str) -> bool:
+    if type(value) is not bool:
+        raise InventoryError(f"{field} must be a boolean")
+    return value
+
+
+def _optional_boolean(value: object, field: str) -> bool | None:
+    if value is None:
+        return None
+    return _required_boolean(value, field)

@@ -5,15 +5,18 @@ de chihuahuas e muffins com TensorFlow/Keras.
 
 ## Estado atual
 
-Os **Incrementos 1 a 5 da SPEC 01** implementam a estrutura mínima do pacote, o
+Os **Incrementos 1 a 7 da SPEC 01** implementam a estrutura mínima do pacote, o
 carregamento e a validação estrutural de `config/example.toml`, serialização
 JSON/CSV canônica, digests SHA-256, `sample_id` determinístico, proveniência e
 um adaptador KaggleHub testável sem rede. O Incremento 4 acrescenta inventário
 determinístico, relatório inicial de qualidade e uma referência Pillow do
-contrato de pré-processamento. O Incremento 5 acrescenta deduplicação exata
-não destrutiva, decisões humanas canônicas e análise preliminar de validação.
-Deduplicação perceptual, particionamento, manifestos finais, pipeline `tf.data`,
-modelo e treinamento continuam não implementados.
+contrato de pré-processamento. O Incremento 5 acrescenta deduplicação exata não
+destrutiva, decisões humanas canônicas e análise preliminar de validação. O
+Incremento 6 acrescenta triagem perceptual pHash, distribuição completa de
+distâncias e painel local de revisão. O Incremento 7 fixa o Cenário A e cria
+atribuições estratificadas e determinísticas de treino, validação e teste.
+Manifestos finais, pipeline `tf.data`, modelo e treinamento continuam não
+concluídos.
 
 O trabalho está dividido em duas especificações conectadas por um contrato de
 dados:
@@ -36,9 +39,9 @@ equivalência, sem manter uma definição divergente.
 - Classes: `0 = chihuahua`, `1 = muffin`.
 - Entrada: RGB `128 × 128 × 3`, com correção EXIF, redimensionamento com
   preenchimento branco, interpolação bilinear e normalização para `[0, 1]`.
-- As partições originais `train` e `test` da versão 2 serão preservadas. Uma
-  eventual validação conterá aproximadamente 15% somente de `train`, seed 42,
-  após aprovação baseada também na auditoria perceptual.
+- As partições originais `train` e `test` da versão 2 são preservadas. A
+  validação contém aproximadamente 15% somente de `train`, com seed 42 e
+  estratificação por classe; o `test` original não é redistribuído.
 - Manifesto de dataset: `schema_version = "1.0"`, serialização canônica e
   digests do índice e do relatório de qualidade.
 - CNN inicial: convoluções com 16/32/64 filtros, Global Average Pooling, Dense
@@ -68,7 +71,7 @@ implementação.
 | `make help` | Exibir a interface e seu estado | Operacional |
 | `make data` | Adquirir e preparar os dados | Não implementado |
 | `make validate-data` | Validar contrato e critérios da SPEC 01 | Não implementado |
-| `make check` | Compilar módulos e executar a suíte pytest | Operacional nos Incrementos 1 a 5 |
+| `make check` | Compilar módulos e executar a suíte pytest | Operacional nos Incrementos 1 a 7 |
 | `make smoke-train` | Exercitar treinamento mínimo | Não implementado |
 | `make train` | Executar treinamento completo com GPU | Não implementado |
 | `make evaluate` | Avaliar o checkpoint final no teste | Não implementado |
@@ -145,6 +148,12 @@ candidatas nesta etapa. A referência de pré-processamento aplica EXIF, convers
 RGB, padding branco, bilinear e normalização sem modificar nem materializar os
 originais.
 
+O Incremento 6 adiciona `ImageHash==4.3.2` para pHash. A versão possui wheel
+universal e foi validada localmente com Python 3.12.3, Pillow 13.0.0, NumPy
+2.5.4, SciPy 1.18.1 e PyWavelets 1.10.0; `pip check` não encontrou requisitos
+quebrados. O pHash é usado somente para formar uma fila de revisão. Nenhuma
+distância confirma duplicação ou autoriza exclusão automaticamente.
+
 Dados, credenciais e artefatos gerados ficarão fora do Git. O arquivo
 `bootstrap_prompt` é preservado e permanece disponível para versionamento como
 registro da origem do projeto.
@@ -183,28 +192,79 @@ duplicação não resolve automaticamente quais amostras serão preservadas.
 No dataset real foram encontrados zero grupos exatos, zero conflitos, zero
 ocorrências entre `train` e `test`, zero exclusões e zero bloqueios. Permanecem
 elegíveis 2.559/2.174 imagens de chihuahua/muffin em `train` e 640/544 em `test`.
-Uma estimativa de 15% por classe de `train` corresponderia a 384 chihuahuas e
-326 muffins para validação, deixando 2.175/1.848 para treino. Nenhuma amostra foi
-atribuída: a decisão entre treinar com validação (Cenário A) ou por 15 épocas
-fixas sem validação (Cenário B) depende do Incremento 6 e só poderá resultar em
-split no Incremento 7.
+Uma proporção de 15% por classe de `train` corresponde a 384 chihuahuas e 326
+muffins para validação, deixando 2.175/1.848 para treino. Esses valores foram
+materializados logicamente no Incremento 7 após a escolha humana do Cenário A.
 
 Os relatórios locais não finais estão em
 `data/audit/kaggle-2733586-v2-exact/`: `exact_deduplication.json`,
 `human_decisions.json` e `validation_feasibility.json`.
 
+## Auditoria perceptual e revisão visual
+
+O Incremento 6 calculou pHash de 64 bits com `hash_size = 8` e
+`highfreq_factor = 4` para as 5.917 imagens elegíveis e comparou todos os
+17.502.486 pares únicos em blocos vetorizados. Os originais e as partições não
+foram modificados. A cauda inferior observada foi:
+
+| Distância | 0 | 2 | 4 | 6 | 8 | 10 | 12 | 14 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Pares | 300 | 101 | 8 | 11 | 17 | 69 | 213 | 1.104 |
+
+A triagem local inclui os 719 pares com distância até 12 para permitir revisão
+da fronteira: 441 estão dentro de `train`, 250 cruzam `train`/`test`, 28 estão
+dentro de `test` e 31 envolvem rótulos conflitantes. Isso não significa que
+sejam 719 duplicatas. A inspeção amostral encontrou versões reais da mesma
+imagem entre 0 e 10, enquanto a distância 12 já mistura duplicatas com falsos
+positivos; em 14 ocorre forte crescimento de falsos candidatos.
+
+Foram propostas duas faixas: `0–10` como fila conservadora principal (506
+pares, sem conflitos de rótulo) e `12` como faixa de fronteira/calibração (213
+pares, incluindo 31 conflitos). Distância 14 não é recomendada como teto, pois
+adiciona 1.104 pares e forma um componente espúrio de 133 imagens. Nenhuma
+decisão humana foi registrada.
+
+Os artefatos locais estão em
+`data/audit/kaggle-2733586-v2-perceptual/`: relatório JSON, registro canônico de
+decisões, avaliação de viabilidade e `review_panel.html`. O painel mostra as
+imagens lado a lado e exporta decisões compatíveis com o registro do Incremento
+5. Para este exercício didático, foi decidido não revisar manualmente os 719
+pares nem formar grupos a partir de suspeitas não confirmadas. O Cenário A foi
+escolhido conscientemente apesar do risco residual de sobreposição.
+
+## Particionamento aprovado
+
+O Incremento 7 preserva todos os 1.184 IDs do `test` original e seleciona a
+validação exclusivamente entre os 4.733 exemplos do `train` original. Para
+isso, carrega e valida o `inventory.json` anterior. Para cada classe, as amostras
+são ordenadas por uma chave SHA-256 derivada de domínio versionado, seed 42 e
+`sample_id`; a seleção independe da ordem de leitura.
+
+| Split lógico | Chihuahua | Muffin | Total |
+|---|---:|---:|---:|
+| `train` | 2.175 | 1.848 | 4.023 |
+| `validation` | 384 | 326 | 710 |
+| `test` | 640 | 544 | 1.184 |
+| **total** | **3.199** | **2.718** | **5.917** |
+
+Os registros locais não finais estão em
+`data/audit/kaggle-2733586-v2-splits/`: `split_assignments.json` e
+`split_report.json`. Eles preservam ID, caminho, rótulo, partição original e
+SHA-256, mas não substituem o manifesto final do Incremento 8.
+
+Os 719 pares de pHash permanecem candidatos não revisados: não causaram
+exclusão, alteração de rótulo, agrupamento ou escolha de split. Assim, versões
+da mesma fotografia ainda podem atravessar treino, validação e teste, o que
+limita a interpretação futura das métricas como evidência de generalização.
+
 ## Próximas etapas
 
-Após revisão deste bootstrap:
+Próximas etapas, somente após revisão do Incremento 7:
 
-1. aprovar e instalar somente as dependências necessárias à SPEC 01;
-2. inspecionar informações públicas sobre fonte, licença e versão do dataset;
-3. implementar incrementalmente a SPEC 01 e seus testes de contrato;
-4. no Incremento 6, auditar duplicatas perceptuais e propor método/limiar;
-5. decidir entre os Cenários A e B e, somente no Incremento 7, materializar o
-   contrato de splits aprovado;
-6. estabelecer o baseline e uma meta preditiva antes da avaliação final;
-7. diagnosticar a GPU e implementar a SPEC 02 sem alterar o particionamento.
+1. produzir no Incremento 8 os artefatos finais e validar o contrato completo
+   da SPEC 01;
+2. estabelecer o baseline e uma meta preditiva antes da avaliação final;
+3. diagnosticar a GPU e implementar a SPEC 02 sem alterar o particionamento.
 
 ## Referências
 

@@ -5,6 +5,7 @@ description = "Classificador didático de imagens de chihuahuas e muffins"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "ImageHash==4.3.2",
     "kagglehub==1.0.3",
     "Pillow==13.0.0",
 ]
