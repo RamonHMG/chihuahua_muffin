@@ -5,6 +5,22 @@ from pathlib import Path
 
 
 @dataclass(frozen=True, slots=True)
+class HumanAuthorizationConfig:
+    """Narrow human exception for one dataset version and one local purpose."""
+
+    status: str
+    source_id: str
+    dataset_handle: str
+    dataset_version: str
+    purpose: str
+    decision_date: str
+    authorized_by: str
+    license_ambiguity_acknowledged: bool
+    local_use_only: bool
+    redistribution_allowed: bool
+
+
+@dataclass(frozen=True, slots=True)
 class DatasetConfig:
     """Dataset source metadata and local storage locations."""
 
@@ -24,6 +40,7 @@ class DatasetConfig:
     raw_dir: Path
     prepared_dir: Path
     preserve_valid_official_splits: bool
+    human_authorization: HumanAuthorizationConfig
 
 
 @dataclass(frozen=True, slots=True)

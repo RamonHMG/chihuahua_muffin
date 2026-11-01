@@ -104,6 +104,22 @@ otimização de limiar ou avaliação preditiva.
 Nenhum dado pode ser utilizado se a licença estiver ausente ou ambígua até que
 haja decisão humana explícita.
 
+### Exceção humana aprovada para uso educacional local
+
+Em 2026-11-01, o responsável pelo projeto autorizou explicitamente o download e
+o uso local, não comercial e educacional do dataset Kaggle
+`samuelcortinhas/muffin-vs-chihuahua-image-classification`, versão imutável 2.
+A decisão reconhece que a página declara CC0, mas que a cadeia de direitos das
+fotografias obtidas do Google Images não foi demonstrada. Ela não confirma a
+licença, não autoriza redistribuição e não se aplica a outro dataset, versão ou
+finalidade.
+
+O gate implementado mantém a licença como `ambiguous` e somente libera essa
+ocorrência quando uma autorização tipada coincide com fonte, ID, handle, versão,
+finalidade `educational_local_use`, escopo apenas local, reconhecimento da
+ambiguidade e proibição de redistribuição. Versão pendente, licença ausente ou
+pendente, autorização divergente ou finalidade diferente continuam bloqueadas.
+
 ### Estado público verificado da fonte candidata
 
 Consulta somente leitura realizada em 2026-11-01 no endpoint público da Kaggle:
@@ -118,8 +134,9 @@ Consulta somente leitura realizada em 2026-11-01 no endpoint público da Kaggle:
 
 A declaração CC0 existe e sua evidência foi registrada, mas a descrição não
 demonstra a cadeia de direitos das imagens coletadas. Por isso, o estado da
-licença permanece `ambiguous` e bloqueia aquisição até revisão humana. Nenhum
-arquivo do dataset foi baixado nesta verificação.
+licença permanece `ambiguous` e bloqueia aquisição por padrão. Nenhum arquivo
+foi baixado durante essa verificação pública; o download posterior ocorreu
+somente após a exceção humana específica registrada abaixo.
 
 O endpoint usado como evidência é
 `https://www.kaggle.com/api/v1/datasets/view/samuelcortinhas/muffin-vs-chihuahua-image-classification`.
@@ -137,6 +154,8 @@ O endpoint usado como evidência é
 - Falhas produzem erro estruturado. Conteúdo parcial criado pela própria chamada
   é removido; falha de limpeza é informada explicitamente e nunca ocultada.
 - A função de download pode ser injetada, permitindo testes completos sem rede.
+- A exceção humana aprovada é passada separadamente ao adaptador e fica
+  registrada no resultado; ela não desativa as verificações globais.
 
 ### Inventário e controle de qualidade
 
@@ -150,6 +169,64 @@ O endpoint usado como evidência é
 - **DATA-009:** rótulos conflitantes, estrutura inesperada ou casos não
   resolvíveis com segurança devem bloquear a preparação final ou permanecer em
   revisão humana, nunca ser corrigidos silenciosamente.
+
+#### Contrato implementado no Incremento 4
+
+- o inventário percorre arquivos em ordem POSIX relativa e gera `sample_id`
+  usando o identificador imutável da versão;
+- cada arquivo regular recebe SHA-256, tamanho e um dos estados `accepted`,
+  `excluded` ou `review`; links simbólicos não são seguidos e exigem revisão;
+- classe e partição original são inferidas apenas de nomes explícitos de
+  diretório; ausência de partição é registrada sem inventar um split;
+- dimensões, formato, modo, canais, animação e orientação EXIF são lidos com
+  Pillow; arquivo não decodificável e animação são excluídos com motivo;
+- JPEG e PNG são formatos esperados inicialmente. Outros formatos decodificáveis,
+  extensões incompatíveis, modos fora de RGB/RGBA/L, classe ambígua e EXIF
+  inválido seguem para revisão em vez de conversão silenciosa;
+- hashes repetidos são reportados somente como candidatos a duplicatas exatas.
+  Nenhuma ocorrência é removida e nenhum grupo definitivo é criado neste
+  incremento;
+- `inventory.json` e `quality_report.json` da auditoria inicial usam o JSON
+  canônico aprovado, permanecem locais e são explicitamente distintos do índice
+  e manifesto finais.
+
+### Resultado da auditoria inicial da versão 2
+
+A aquisição autorizada foi concluída em `2026-11-01T18:31:19.646234Z` com
+KaggleHub 1.0.3, handle imutável
+`samuelcortinhas/muffin-vs-chihuahua-image-classification/versions/2` e destino
+local `data/raw/kaggle-2733586-v2`. O adaptador contou 5.918 arquivos e preservou
+os originais. A árvore contém partições `train` e `test`, ambas com diretórios
+`chihuahua` e `muffin`; não existe partição de validação na fonte.
+
+O inventário inicial reconciliou:
+
+| Partição | Chihuahua | Muffin | Total |
+|---|---:|---:|---:|
+| treino da fonte | 2.559 | 2.174 | 4.733 |
+| teste da fonte | 640 | 544 | 1.184 |
+| **imagens** | **3.199** | **2.718** | **5.917** |
+
+Todas as 5.917 imagens possuem extensão `.jpg` e formato decodificado JPEG.
+São 5.913 imagens RGB e 4 grayscale L; não foram encontradas RGBA, animações,
+arquivos de imagem ilegíveis, formatos inesperados, EXIF de orientação ou
+SHA-256 repetidos. Há 2.171 dimensões distintas: larguras entre 102 e 4.603 e
+alturas entre 129 e 4.096 pixels. Um sexto tipo de arquivo, o marcador interno
+`.complete/.../bundle.complete` criado pelo KaggleHub, foi inventariado e
+excluído explicitamente com os motivos `class_not_identified` e
+`non_image_file`.
+
+Os artefatos locais de auditoria inicial são:
+
+- `inventory.json`, SHA-256
+  `6994b3d3d4226d958f9cc34a3e54b076356d368a7ac9b3e76608200380dbf4f3`;
+- `quality_report.json`, SHA-256
+  `72b8d34d1f56b87ce8cf1320ade72abff74575b9af9fff43a0eddea24fa84aae`.
+
+Esses resultados não constituem validação completa: pHash, agrupamento de
+versões da mesma fotografia, análise de vazamento entre `train`/`test`, decisão
+definitiva sobre duplicatas exatas, criação da validação, splits preparados e
+manifesto final permanecem fora deste incremento.
 
 ### Classes
 
@@ -242,6 +319,17 @@ entre splits, não remover exemplos difíceis.
 - **DATA-034:** qualquer aumento de dados futuro deve ser aleatório apenas no
   treino e pertencer à configuração da SPEC 02, não ao split.
 
+#### Referência verificável implementada no Incremento 4
+
+A referência Pillow abre o original somente para leitura, rejeita animações e
+modos não aprovados, aplica `ImageOps.exif_transpose`, preserva RGB, replica L
+para RGB ou compõe RGBA sobre branco. Em seguida usa `ImageOps.pad` centralizado
+para 128 × 128, `Image.Resampling.BILINEAR`, branco `(255, 255, 255)` e gera uma
+representação HWC em ponto flutuante dividida por 255. Os testes verificam EXIF,
+modos, interpolação, padding, faixa, dimensões e preservação dos bytes originais.
+Esta é a referência da SPEC 01; sua implementação equivalente com `tf.data`
+permanece responsabilidade futura da SPEC 02.
+
 ## Precedência para criação dos splits
 
 1. Inspecionar estrutura e partições originais.
@@ -262,7 +350,9 @@ Artefatos futuros previstos:
   resumo do dataset preparado;
 - `data/prepared/quality_report.json`: ocorrências e decisões de qualidade.
 
-Nenhum desses artefatos existe no bootstrap.
+Os artefatos finais acima ainda não existem. O Incremento 4 pode gerar, sob
+`data/`, somente artefatos de auditoria inicial claramente identificados como
+não finais.
 
 ### Campos mínimos do índice
 
@@ -374,8 +464,9 @@ evidência independente de duplicação.
 
 ## Critérios ainda pendentes
 
-- revisão humana da aplicabilidade da licença declarada às imagens coletadas;
-- estrutura e partições reais da fonte;
+- eventual revisão jurídica adicional da aplicabilidade da licença declarada;
+- validação definitiva das partições reais contra duplicatas perceptuais e
+  vazamento;
 - algoritmo perceptual, parâmetros, limiar conservador e protocolo de revisão;
 - decisão futura sobre publicação ou versionamento dos manifestos locais.
 
@@ -413,3 +504,15 @@ evidência independente de duplicação.
 - **2026-11-01:** KaggleHub 1.0.3 é o adaptador aprovado; usa handle versionado,
   autorização explícita, destino exclusivo, sem sobrescrita e com limpeza ou
   relato explícito de falhas parciais.
+- **2026-11-01:** foi aprovada exceção humana estrita para download e uso
+  educacional local do dataset candidato na versão 2, com reconhecimento da
+  ambiguidade da licença e sem autorização de redistribuição; o estado da
+  licença continua `ambiguous`.
+- **2026-11-01:** Pillow 13.0.0 implementa a inspeção inicial e a referência do
+  pré-processamento; JPEG/PNG são formatos inicialmente esperados e outros
+  formatos ou modos não cobertos exigem revisão.
+- **2026-11-01:** no Incremento 4, hashes repetidos são apenas candidatos e os
+  relatórios iniciais não realizam deduplicação, split ou manifesto final.
+- **2026-11-01:** a versão 2 foi adquirida localmente e revelou 5.917 JPEGs nas
+  partições `train` e `test`, além de um marcador KaggleHub não-imagem; a
+  auditoria inicial não encontrou corrupção, animações ou SHA-256 repetidos.

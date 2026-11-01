@@ -12,6 +12,7 @@ from .records import (
     ClassConfig,
     DatasetConfig,
     DuplicatePolicyConfig,
+    HumanAuthorizationConfig,
     PreprocessingConfig,
     ProjectConfig,
     SplitConfig,
@@ -198,7 +199,114 @@ def load_config(
         _nonempty("dataset.version", version)
         _nonempty("dataset.license", license_name)
         _exact("dataset.version_status", version_status, "confirmed")
-        _exact("dataset.license_status", license_status, "confirmed")
+
+    authorization_table = _table(
+        dataset_table,
+        "human_authorization",
+        "dataset.human_authorization",
+    )
+    authorization_values: dict[str, object] = {
+        "status": _value(
+            authorization_table,
+            "status",
+            str,
+            "dataset.human_authorization.status",
+        ),
+        "source_id": _value(
+            authorization_table,
+            "source_id",
+            str,
+            "dataset.human_authorization.source_id",
+        ),
+        "dataset_handle": _value(
+            authorization_table,
+            "source_locator",
+            str,
+            "dataset.human_authorization.source_locator",
+        ),
+        "dataset_version": _value(
+            authorization_table,
+            "dataset_version_id",
+            str,
+            "dataset.human_authorization.dataset_version_id",
+        ),
+        "purpose": _value(
+            authorization_table,
+            "purpose",
+            str,
+            "dataset.human_authorization.purpose",
+        ),
+        "decision_date": _value(
+            authorization_table,
+            "decision_date",
+            str,
+            "dataset.human_authorization.decision_date",
+        ),
+        "authorized_by": _value(
+            authorization_table,
+            "authorized_by",
+            str,
+            "dataset.human_authorization.authorized_by",
+        ),
+        "license_ambiguity_acknowledged": _value(
+            authorization_table,
+            "license_ambiguity_acknowledged",
+            bool,
+            "dataset.human_authorization.license_ambiguity_acknowledged",
+        ),
+        "local_use_only": _value(
+            authorization_table,
+            "local_use_only",
+            bool,
+            "dataset.human_authorization.local_use_only",
+        ),
+        "redistribution_allowed": _value(
+            authorization_table,
+            "redistribution_allowed",
+            bool,
+            "dataset.human_authorization.redistribution_allowed",
+        ),
+    }
+    approved_authorization: dict[str, object] = {
+        "status": "approved",
+        "source_id": "2733586",
+        "dataset_handle": "samuelcortinhas/muffin-vs-chihuahua-image-classification",
+        "dataset_version": "2",
+        "purpose": "educational_local_use",
+        "decision_date": "2026-11-01",
+        "authorized_by": "project_owner",
+        "license_ambiguity_acknowledged": True,
+        "local_use_only": True,
+        "redistribution_allowed": False,
+    }
+    for key, expected in approved_authorization.items():
+        _exact(
+            f"dataset.human_authorization.{key}",
+            authorization_values[key],
+            expected,
+        )
+    _exact(
+        "dataset.human_authorization.source_id",
+        authorization_values["source_id"],
+        source_id,
+    )
+    _exact(
+        "dataset.human_authorization.source_locator",
+        authorization_values["dataset_handle"],
+        handle,
+    )
+    _exact(
+        "dataset.human_authorization.dataset_version_id",
+        authorization_values["dataset_version"],
+        version,
+    )
+
+    if validation_mode is ValidationMode.ACQUISITION:
+        if license_status not in {"confirmed", "ambiguous"}:
+            raise ConfigError(
+                "dataset.license_status",
+                "must be confirmed or covered by the approved local-use exception",
+            )
 
     split_table = _table(dataset_table, "preferred_split", "dataset.preferred_split")
     train = _value(split_table, "train", float, "dataset.preferred_split.train")
@@ -404,6 +512,7 @@ def load_config(
             raw_dir=raw_dir,
             prepared_dir=prepared_dir,
             preserve_valid_official_splits=preserve_splits,
+            human_authorization=HumanAuthorizationConfig(**authorization_values),
         ),
         split=SplitConfig(
             train=train,

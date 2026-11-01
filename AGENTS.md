@@ -5,9 +5,9 @@
 Este repositório desenvolverá, de forma didática e reproduzível, um classificador
 binário de imagens de chihuahuas e muffins com Python e TensorFlow/Keras.
 
-O projeto está em bootstrap documental. A presença de uma interface no
-`Makefile` não significa que aquisição de dados, validação, treinamento ou
-avaliação já estejam implementados.
+O projeto está em implementação incremental da SPEC 01. A presença de uma
+interface no `Makefile` não significa que preparação final, validação completa,
+treinamento ou avaliação já estejam implementados.
 
 ## Leitura obrigatória
 

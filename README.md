@@ -5,12 +5,14 @@ de chihuahuas e muffins com TensorFlow/Keras.
 
 ## Estado atual
 
-Os **Incrementos 1, 2 e 3 da SPEC 01** implementam a estrutura mínima do pacote, o
+Os **Incrementos 1, 2, 3 e 4 da SPEC 01** implementam a estrutura mínima do pacote, o
 carregamento e a validação estrutural de `config/example.toml`, serialização
 JSON/CSV canônica, digests SHA-256, `sample_id` determinístico, proveniência e
-um adaptador KaggleHub testável sem rede. O pipeline de aquisição/preparação,
-processamento de imagens, duplicatas, particionamento, pipeline `tf.data`, modelo
-e treinamento continuam não implementados.
+um adaptador KaggleHub testável sem rede. O Incremento 4 acrescenta inventário
+determinístico, relatório inicial de qualidade e uma referência Pillow do
+contrato de pré-processamento. Deduplicação definitiva, particionamento,
+manifestos finais, pipeline `tf.data`, modelo e treinamento continuam não
+implementados.
 
 O trabalho está dividido em duas especificações conectadas por um contrato de
 dados:
@@ -47,8 +49,11 @@ equivalência, sem manter uma definição divergente.
 A API pública da Kaggle informa ID `2733586`, versão 2 e licença declarada
 `CC0: Public Domain`. Como a descrição afirma que as imagens foram obtidas do
 Google Images sem demonstrar sua cadeia de direitos, a licença permanece
-ambígua para uso e bloqueia aquisição até revisão humana. Estrutura e qualidade
-reais ainda não foram auditadas e nenhum dado foi baixado.
+ambígua. Em 2026-11-01, o responsável pelo projeto autorizou excepcionalmente o
+download e uso educacional local apenas desse dataset e versão, reconhecendo a
+ressalva, proibindo redistribuição e sem transformar o estado da licença em
+`confirmed`. A implementação exige que essa exceção corresponda exatamente à
+fonte, versão e finalidade registradas.
 
 ## Interface operacional
 
@@ -107,10 +112,12 @@ autorização próprias. Drivers e pilha de GPU não foram modificados.
 ## Configuração
 
 `config/example.toml` é a configuração padrão para validação estrutural e
-registra decisões aprovadas e campos pendentes. O modo estrutural aceita versão
-e licença vazias para permitir testes. O modo de aquisição exige ambos os
-metadados preenchidos e rejeita o exemplo enquanto a fonte não for verificada.
-Isso não transforma o exemplo em configuração autorizada para download.
+registra decisões aprovadas e campos pendentes. O modo estrutural permite
+testar o contrato sem executar aquisição. O modo de aquisição exige versão
+confirmada, licença identificada e confirmada ou uma exceção humana exata; a
+configuração atual passa somente para o dataset/version/finalidade autorizados.
+A chamada do adaptador ainda exige `download_authorized=True`, portanto validar
+a configuração isoladamente não inicia nem autoriza uma operação de rede.
 
 JSON canônico usa UTF-8, chaves ordenadas, representação compacta, floats
 finitos e nenhum newline final. O CSV do índice tem cabeçalho fixo, quoting
@@ -124,12 +131,45 @@ instaladas suas dependências transitivas necessárias.
 
 O Incremento 3 adiciona `kagglehub==1.0.3` como dependência direta. A versão é
 compatível com Python 3.12 e instalou somente suas dependências transitivas. O
-adaptador não é chamado por `make data`: uma futura aquisição exige licença
-liberada, versão confirmada e autorização humana explícita.
+adaptador não é chamado por `make data`: uma aquisição exige versão confirmada,
+autorização operacional explícita e licença confirmada ou a exceção humana
+restrita registrada.
+
+O Incremento 4 adiciona `Pillow==13.0.0`. O pacote oficial requer Python 3.11
+ou superior, disponibiliza wheel CPython 3.12 para Linux x86-64 e não introduziu
+dependências transitivas. O inventário calcula SHA-256 e registra todos os
+arquivos como aceitos, excluídos ou em revisão; duplicatas exatas são somente
+candidatas nesta etapa. A referência de pré-processamento aplica EXIF, conversão
+RGB, padding branco, bilinear e normalização sem modificar nem materializar os
+originais.
 
 Dados, credenciais e artefatos gerados ficarão fora do Git. O arquivo
 `bootstrap_prompt` é preservado e permanece disponível para versionamento como
 registro da origem do projeto.
+
+## Auditoria inicial do dataset real
+
+Aquisição local realizada em 2026-11-01 com KaggleHub 1.0.3 e handle imutável
+`samuelcortinhas/muffin-vs-chihuahua-image-classification/versions/2`. O destino
+`data/raw/kaggle-2733586-v2` ocupa aproximadamente 499 MB e permanece ignorado
+pelo Git.
+
+- 5.917 imagens JPEG `.jpg`: 3.199 chihuahuas e 2.718 muffins;
+- partições de origem `train` (4.733: 2.559/2.174) e `test` (1.184:
+  640/544), sem validação oficial;
+- 5.913 RGB e 4 grayscale L; nenhuma RGBA, animação, imagem ilegível ou EXIF de
+  orientação foi encontrada;
+- 2.171 dimensões distintas, com larguras de 102 a 4.603 e alturas de 129 a
+  4.096 pixels;
+- nenhum SHA-256 repetido entre as imagens;
+- um arquivo interno `bundle.complete` do KaggleHub foi inventariado e excluído
+  explicitamente como não-imagem.
+
+Os artefatos locais não finais estão em
+`data/audit/kaggle-2733586-v2-initial/`: `inventory.json` e
+`quality_report.json`. Esta é uma auditoria inicial, não valida ausência de
+duplicatas perceptuais ou vazamento, não aprova as partições para treinamento e
+não constitui manifesto final.
 
 ## Próximas etapas
 

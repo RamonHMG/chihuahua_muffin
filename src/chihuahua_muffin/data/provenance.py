@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 
-from .records import DatasetConfig
+from .records import DatasetConfig, HumanAuthorizationConfig
 
 
 class EvidenceStatus(StrEnum):
@@ -53,6 +53,70 @@ class MetadataEvidence:
 
 
 @dataclass(frozen=True, slots=True)
+class HumanUseAuthorization:
+    """Explicit exception for one immutable dataset and local educational use."""
+
+    source: str
+    source_id: str
+    handle: str
+    version: str
+    purpose: str
+    decision_date: str
+    authorized_by: str
+    license_ambiguity_acknowledged: bool
+    local_use_only: bool
+    redistribution_allowed: bool
+
+    def __post_init__(self) -> None:
+        text_fields = {
+            "source": self.source,
+            "source_id": self.source_id,
+            "handle": self.handle,
+            "version": self.version,
+            "purpose": self.purpose,
+            "decision_date": self.decision_date,
+            "authorized_by": self.authorized_by,
+        }
+        for field, value in text_fields.items():
+            if type(value) is not str or not value.strip():
+                raise ValueError(f"authorization {field} must be a non-empty string")
+        for field in (
+            "license_ambiguity_acknowledged",
+            "local_use_only",
+            "redistribution_allowed",
+        ):
+            if type(getattr(self, field)) is not bool:
+                raise TypeError(f"authorization {field} must be bool")
+        try:
+            date.fromisoformat(self.decision_date)
+        except ValueError as error:
+            raise ValueError("authorization decision_date must use YYYY-MM-DD") from error
+
+    def mismatch_reasons(self, provenance: DatasetProvenance) -> tuple[str, ...]:
+        """Explain why this exception cannot release the given provenance."""
+
+        reasons: list[str] = []
+        expected = {
+            "source": provenance.source,
+            "source_id": provenance.source_id,
+            "handle": provenance.handle,
+            "version": provenance.version.value,
+        }
+        for field, value in expected.items():
+            if getattr(self, field) != value:
+                reasons.append(f"authorization {field} does not match provenance")
+        if self.purpose != "educational_local_use":
+            reasons.append("authorization purpose is not educational_local_use")
+        if self.license_ambiguity_acknowledged is not True:
+            reasons.append("authorization does not acknowledge license ambiguity")
+        if self.local_use_only is not True:
+            reasons.append("authorization is not restricted to local use")
+        if self.redistribution_allowed is not False:
+            reasons.append("authorization must prohibit redistribution")
+        return tuple(reasons)
+
+
+@dataclass(frozen=True, slots=True)
 class DatasetProvenance:
     """Public identity and evidence for one dataset version."""
 
@@ -90,6 +154,14 @@ class DatasetProvenance:
     def blockers(self) -> tuple[str, ...]:
         """Return human-readable reasons that currently block acquisition."""
 
+        return self.acquisition_blockers()
+
+    def acquisition_blockers(
+        self,
+        authorization: HumanUseAuthorization | None = None,
+    ) -> tuple[str, ...]:
+        """Return blockers, allowing only a matching ambiguity exception."""
+
         blockers: list[str] = []
         if self.version.status is not EvidenceStatus.CONFIRMED:
             blockers.append(
@@ -97,7 +169,12 @@ class DatasetProvenance:
             )
         elif not self.version.value.strip():
             blockers.append("dataset version is absent")
-        if self.license.status is not EvidenceStatus.CONFIRMED:
+        if self.license.status is EvidenceStatus.AMBIGUOUS and authorization is not None:
+            if not self.license.value.strip():
+                blockers.append("dataset license is absent")
+            else:
+                blockers.extend(authorization.mismatch_reasons(self))
+        elif self.license.status is not EvidenceStatus.CONFIRMED:
             blockers.append(
                 f"dataset license is {self.license.status.value}, not confirmed"
             )
@@ -105,28 +182,48 @@ class DatasetProvenance:
             blockers.append("dataset license is absent")
         return tuple(blockers)
 
-    def require_acquisition_ready(self) -> None:
+    def require_acquisition_ready(
+        self,
+        authorization: HumanUseAuthorization | None = None,
+    ) -> None:
         """Reject metadata that is pending, ambiguous, or absent."""
 
-        if self.blockers:
-            raise ProvenanceError(self.blockers)
+        blockers = self.acquisition_blockers(authorization)
+        if blockers:
+            raise ProvenanceError(blockers)
 
-    @property
-    def versioned_handle(self) -> str:
-        """Return the immutable KaggleHub dataset handle."""
+    def versioned_handle_for(
+        self,
+        authorization: HumanUseAuthorization | None = None,
+    ) -> str:
+        """Return the immutable KaggleHub handle after applying the gate."""
 
-        self.require_acquisition_ready()
+        self.require_acquisition_ready(authorization)
         version = self.version.value
         if not version.isdecimal() or int(version) <= 0:
             raise ProvenanceError(("Kaggle version must be a positive integer",))
         return f"{self.handle}/versions/{version}"
 
     @property
+    def versioned_handle(self) -> str:
+        """Return the immutable KaggleHub dataset handle."""
+
+        return self.versioned_handle_for()
+
+    def immutable_version_id_for(
+        self,
+        authorization: HumanUseAuthorization | None = None,
+    ) -> str:
+        """Return the source-scoped identity after applying the gate."""
+
+        self.require_acquisition_ready(authorization)
+        return f"kaggle:{self.source_id}:v{self.version.value}"
+
+    @property
     def immutable_version_id(self) -> str:
         """Return the source-scoped identifier intended for stable sample IDs."""
 
-        self.require_acquisition_ready()
-        return f"kaggle:{self.source_id}:v{self.version.value}"
+        return self.immutable_version_id_for()
 
 
 def _parse_timestamp(value: str) -> datetime:
@@ -169,4 +266,26 @@ def provenance_from_config(config: DatasetConfig) -> DatasetProvenance:
             evidence_url=config.metadata_url,
             note=config.license_note,
         ),
+    )
+
+
+def authorization_from_config(
+    dataset: DatasetConfig,
+) -> HumanUseAuthorization:
+    """Build the narrow human exception recorded in the project config."""
+
+    config: HumanAuthorizationConfig = dataset.human_authorization
+    if config.status != "approved":
+        raise ProvenanceError(("human authorization is not approved",))
+    return HumanUseAuthorization(
+        source=dataset.source,
+        source_id=config.source_id,
+        handle=config.dataset_handle,
+        version=config.dataset_version,
+        purpose=config.purpose,
+        decision_date=config.decision_date,
+        authorized_by=config.authorized_by,
+        license_ambiguity_acknowledged=config.license_ambiguity_acknowledged,
+        local_use_only=config.local_use_only,
+        redistribution_allowed=config.redistribution_allowed,
     )

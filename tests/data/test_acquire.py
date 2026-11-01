@@ -8,6 +8,7 @@ from chihuahua_muffin.data.acquire import AcquisitionError, KaggleHubAdapter
 from chihuahua_muffin.data.provenance import (
     DatasetProvenance,
     EvidenceStatus,
+    HumanUseAuthorization,
     MetadataEvidence,
 )
 
@@ -108,6 +109,50 @@ def test_ambiguous_provenance_blocks_backend_call(tmp_path: Path) -> None:
 
     assert captured.value.code == "provenance_blocked"
     assert called is False
+
+
+def test_matching_human_exception_allows_only_the_ambiguous_local_use(
+    tmp_path: Path,
+) -> None:
+    calls: list[str] = []
+
+    def download(handle: str, *, output_dir: str, force_download: bool) -> str:
+        calls.append(handle)
+        Path(output_dir, "image.jpg").write_bytes(b"original")
+        return output_dir
+
+    provenance = replace(
+        _ready_provenance(),
+        license=MetadataEvidence(
+            "CC0",
+            EvidenceStatus.AMBIGUOUS,
+            METADATA_URL,
+            "rights require review",
+        ),
+    )
+    authorization = HumanUseAuthorization(
+        source="kaggle",
+        source_id="123",
+        handle="owner/dataset",
+        version="7",
+        purpose="educational_local_use",
+        decision_date="2026-11-01",
+        authorized_by="project_owner",
+        license_ambiguity_acknowledged=True,
+        local_use_only=True,
+        redistribution_allowed=False,
+    )
+
+    result = _adapter(download).acquire(
+        provenance,
+        tmp_path / "raw",
+        download_authorized=True,
+        human_use_authorization=authorization,
+    )
+
+    assert calls == ["owner/dataset/versions/7"]
+    assert result.human_authorization_used is True
+    assert result.authorization_purpose == "educational_local_use"
 
 
 @pytest.mark.parametrize("existing_kind", ["directory", "file"])

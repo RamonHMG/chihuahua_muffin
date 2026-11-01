@@ -34,6 +34,11 @@ def test_example_config_is_structurally_valid() -> None:
     assert config.dataset.version_status == "confirmed"
     assert config.dataset.license == "CC0: Public Domain"
     assert config.dataset.license_status == "ambiguous"
+    assert config.dataset.human_authorization.status == "approved"
+    assert config.dataset.human_authorization.source_id == "2733586"
+    assert config.dataset.human_authorization.dataset_version == "2"
+    assert config.dataset.human_authorization.local_use_only is True
+    assert config.dataset.human_authorization.redistribution_allowed is False
     assert (config.split.train, config.split.validation, config.split.test) == (
         0.70,
         0.15,
@@ -76,10 +81,22 @@ def test_acquisition_accepts_nonempty_version_and_license(tmp_path: Path) -> Non
     assert config.dataset.license == "CC0: Public Domain"
 
 
-def test_acquisition_rejects_ambiguous_license_status() -> None:
-    _assert_invalid(
-        EXAMPLE_CONFIG, "dataset.license_status", mode="acquisition"
+def test_acquisition_accepts_recorded_local_educational_exception() -> None:
+    config = load_config(EXAMPLE_CONFIG, mode="acquisition")
+
+    assert config.dataset.license_status == "ambiguous"
+    assert config.dataset.human_authorization.license_ambiguity_acknowledged is True
+
+
+def test_acquisition_rejects_pending_license_even_with_local_exception(
+    tmp_path: Path,
+) -> None:
+    path = _modified_config(
+        tmp_path,
+        'license_status = "ambiguous"',
+        'license_status = "pending"',
     )
+    _assert_invalid(path, "dataset.license_status", mode="acquisition")
 
 
 @pytest.mark.parametrize(
@@ -128,6 +145,31 @@ def test_acquisition_rejects_ambiguous_license_status() -> None:
         ("exact_hash = \"sha256\"", "exact_hash = \"md5\"", "duplicates.exact_hash"),
         ("perceptual_threshold = \"\"", "perceptual_threshold = \"8\"", "duplicates.perceptual_threshold"),
         ("automatic_removal_by_perceptual_distance = false", "automatic_removal_by_perceptual_distance = true", "duplicates.automatic_removal_by_perceptual_distance"),
+        (
+            'purpose = "educational_local_use"',
+            'purpose = "commercial_use"',
+            "dataset.human_authorization.purpose",
+        ),
+        (
+            "license_ambiguity_acknowledged = true",
+            "license_ambiguity_acknowledged = false",
+            "dataset.human_authorization.license_ambiguity_acknowledged",
+        ),
+        (
+            "redistribution_allowed = false",
+            "redistribution_allowed = true",
+            "dataset.human_authorization.redistribution_allowed",
+        ),
+        (
+            '[dataset.human_authorization]\nstatus = "approved"\nsource_id = "2733586"',
+            '[dataset.human_authorization]\nstatus = "approved"\nsource_id = "other-id"',
+            "dataset.human_authorization.source_id",
+        ),
+        (
+            'source_locator = "samuelcortinhas/muffin-vs-chihuahua-image-classification"',
+            'source_locator = "other/dataset"',
+            "dataset.human_authorization.dataset_handle",
+        ),
     ],
 )
 def test_incompatible_values_are_rejected(

@@ -9,7 +9,7 @@ from importlib.metadata import version as package_version
 from pathlib import Path
 import shutil
 
-from .provenance import DatasetProvenance, ProvenanceError
+from .provenance import DatasetProvenance, HumanUseAuthorization, ProvenanceError
 
 
 DownloadFunction = Callable[..., str]
@@ -47,6 +47,8 @@ class AcquisitionResult:
     tool_version: str
     file_count: int
     originals_preserved: bool
+    human_authorization_used: bool
+    authorization_purpose: str | None
 
 
 class KaggleHubAdapter:
@@ -78,6 +80,7 @@ class KaggleHubAdapter:
         destination: str | Path,
         *,
         download_authorized: bool = False,
+        human_use_authorization: HumanUseAuthorization | None = None,
     ) -> AcquisitionResult:
         """Acquire without overwriting and clean newly created partial data."""
 
@@ -89,7 +92,7 @@ class KaggleHubAdapter:
                 destination=target,
             )
         try:
-            versioned_handle = provenance.versioned_handle
+            versioned_handle = provenance.versioned_handle_for(human_use_authorization)
         except ProvenanceError as error:
             raise AcquisitionError(
                 "provenance_blocked",
@@ -176,6 +179,12 @@ class KaggleHubAdapter:
             tool_version=self.tool_version,
             file_count=len(files),
             originals_preserved=True,
+            human_authorization_used=human_use_authorization is not None,
+            authorization_purpose=(
+                human_use_authorization.purpose
+                if human_use_authorization is not None
+                else None
+            ),
         )
 
 

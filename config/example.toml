@@ -21,6 +21,18 @@ raw_dir = "data/raw"
 prepared_dir = "data/prepared"
 preserve_valid_official_splits = true
 
+[dataset.human_authorization]
+status = "approved"
+source_id = "2733586"
+source_locator = "samuelcortinhas/muffin-vs-chihuahua-image-classification"
+dataset_version_id = "2"
+purpose = "educational_local_use"
+decision_date = "2026-11-01"
+authorized_by = "project_owner"
+license_ambiguity_acknowledged = true
+local_use_only = true
+redistribution_allowed = false
+
 [dataset.preferred_split]
 train = 0.70
 validation = 0.15
