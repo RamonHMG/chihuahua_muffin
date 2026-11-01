@@ -1,0 +1,157 @@
+# Bootstrap do projeto — Chihuahua vs. Muffin
+
+## 1. Estado inicial e objetivo
+
+Você está atuando como agente de codificação em um repositório Git inicialmente vazio.
+
+Vamos desenvolver um pequeno projeto de visão computacional em Python para **classificar imagens de chihuahuas e muffins**, utilizando uma rede neural convolucional (CNN).
+
+O desenvolvimento seguirá os princípios de **Spec-Driven Development** e **Harness Engineering**.
+
+Nossa primeira etapa é preparar a estrutura, as especificações e as regras que orientarão a implementação.
+
+**Não implemente o classificador nesta etapa.**
+
+## 2. Ambiente e tecnologias
+
+O projeto será desenvolvido no seguinte ambiente:
+
+- Sistema operacional: Linux Mint, instalado diretamente no computador.
+- Linguagem: Python.
+- Framework de aprendizado de máquina: TensorFlow/Keras.
+- Hardware: GPU, já utilizada em outros projetos.
+- Ambiente virtual: `.venv`.
+- Aquisição do dataset: preferencialmente por KaggleHub.
+- Controle de versão: Git.
+
+Considere como fonte candidata o dataset:
+
+`samuelcortinhas/muffin-vs-chihuahua-image-classification`
+
+A estrutura real dos arquivos, sua licença, versão, qualidade e eventuais partições existentes deverão ser verificadas antes da implementação.
+
+Não instale pacotes, modifique drivers ou altere configurações de GPU sem autorização.
+
+## 3. Divisão do projeto em duas SPECs
+
+O projeto deverá ser organizado em duas especificações independentes, mas conectadas por um contrato de dados.
+
+### SPEC 01 — Aquisição e preparação dos dados
+
+Deverá contemplar:
+
+- Download e identificação da versão do dataset.
+- Inspeção das imagens e distribuição das classes.
+- Controle de qualidade, incluindo arquivos inválidos e duplicatas.
+- Pré-processamento e padronização das imagens.
+- Divisão reprodutível em treinamento, validação e teste, respeitando partições preexistentes quando apropriado.
+- Prevenção de vazamento de dados entre os subconjuntos.
+- Geração de um manifesto dos dados.
+- Critérios de aceitação verificáveis.
+
+### SPEC 02 — CNN, treinamento e avaliação
+
+Deverá contemplar:
+
+- Implementação de uma CNN pequena e didática com TensorFlow/Keras.
+- Utilização de camadas convolucionais, ativações, pooling e uma saída apropriada para classificação binária.
+- Treinamento utilizando GPU.
+- Configuração dos hiperparâmetros.
+- Registro de métricas e logs de treinamento.
+- Seleção e salvamento do modelo.
+- Avaliação em um conjunto de teste independente.
+- Geração de gráficos, métricas e matriz de confusão.
+- Manifesto de execução contendo configurações, versões, identificação dos dados e resultados.
+- Critérios de aceitação verificáveis.
+
+A SPEC 02 deverá utilizar os dados produzidos pela SPEC 01, sem repetir ou modificar arbitrariamente seu particionamento.
+
+## 4. AGENTS.md e referências
+
+Crie posteriormente um `AGENTS.md` que estabeleça como os agentes devem trabalhar neste repositório.
+
+Ele deverá definir:
+
+- Leitura obrigatória das SPECs antes da implementação.
+- Respeito aos contratos e critérios de aceitação.
+- Desenvolvimento incremental.
+- Utilização de `.venv` e TensorFlow/Keras.
+- Execução das verificações disponíveis no harness.
+- Registro de decisões, erros e limitações.
+- Proibição de inventar resultados ou ocultar falhas.
+- Necessidade de autorização antes de alterações de escopo, instalações sensíveis ou comandos destrutivos.
+
+Utilize como referências:
+
+**AGENTS.md:**
+https://github.com/agentsmd/agents.md
+
+**GitHub Spec Kit — template de especificação:**
+https://github.com/github/spec-kit/blob/main/templates/spec-template.md
+
+Adapte os templates às necessidades do projeto, preservando sua organização conceitual.
+
+## 5. Harness e interface operacional
+
+Proponha um harness mínimo para permitir que o agente e o desenvolvedor verifiquem as implementações.
+
+Considere uma interface baseada em Makefile com comandos como:
+
+- `make data` — aquisição e preparação.
+- `make validate-data` — verificação da SPEC 01.
+- `make check` — testes e verificações automatizadas.
+- `make smoke-train` — execução mínima de treinamento.
+- `make train` — treinamento completo.
+- `make evaluate` — avaliação final.
+
+O harness deverá fornecer feedback verificável sobre o cumprimento das SPECs.
+
+**Nesta primeira etapa, não implemente os testes nem os scripts de treinamento.** Apenas prepare a estrutura, a documentação e a interface operacional proposta.
+
+Não apresente comandos ainda não implementados como se já estivessem funcionando.
+
+## 6. Primeiro planejar, depois modificar
+
+Antes de criar ou modificar qualquer arquivo:
+
+1. Inspecione o diretório atual e seu estado no Git.
+2. Proponha uma estrutura mínima de pastas e arquivos.
+3. Explique as responsabilidades de cada SPEC.
+4. Proponha a organização do AGENTS.md.
+5. Identifique os componentes necessários ao harness.
+6. Apresente os contratos entre preparação de dados e treinamento.
+7. Identifique ambiguidades e decisões que precisam de confirmação humana.
+
+Mantenha o projeto simples, didático e reproduzível.
+
+**PARE após apresentar o plano.**
+
+Não crie arquivos até que eu aprove explicitamente.
+
+## 7. Arquivos permitidos após a aprovação
+
+Depois da minha aprovação, crie apenas a documentação e a infraestrutura inicial, incluindo:
+
+- `AGENTS.md`
+- `README.md`
+- `docs/specs/01_dataset.md`
+- `docs/specs/02_modelo.md`
+- `pyproject.toml`
+- `config/example.toml`
+- `Makefile`
+- `.gitignore`
+
+Outros arquivos poderão ser propostos, mas devem ser justificados antes da criação.
+
+Nesta etapa:
+
+- Não implemente `src/`.
+- Não crie os testes em `tests/`.
+- Não baixe o dataset.
+- Não inicie o treinamento.
+- Não instale dependências.
+- Não faça commits.
+
+Ao finalizar o bootstrap, apresente a estrutura criada, explique brevemente os arquivos, identifique as próximas etapas e mostre o resultado de `git status`.
+
+Não force uma validação prematura: os testes funcionais e o treinamento somente poderão ser executados quando suas implementações existirem.

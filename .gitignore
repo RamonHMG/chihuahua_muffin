@@ -1,0 +1,38 @@
+# Ambientes e IDEs
+.venv/
+.venv_backup/
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# Segredos e configuração local
+.env
+.env.*
+!.env.example
+kaggle.json
+config/local.toml
+
+# Dados e artefatos gerados
+data/
+artifacts/
+reports/
+logs/
+
+# Arquivos temporários
+*.log
+*.tmp
+*.swp
+.DS_Store
+
+# bootstrap_prompt é intencionalmente versionável e não deve ser ignorado.

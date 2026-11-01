@@ -1,0 +1,42 @@
+SHELL := /bin/bash
+.DEFAULT_GOAL := help
+
+.PHONY: help data validate-data check smoke-train train evaluate
+
+help:
+	@printf '%s\n' \
+		'Chihuahua vs. Muffin — interface do harness' \
+		'' \
+		'Alvo                 Estado' \
+		'make help             operacional: exibe esta ajuda' \
+		'make data             NÃO IMPLEMENTADO: aquisição e preparação' \
+		'make validate-data    NÃO IMPLEMENTADO: validação da SPEC 01' \
+		'make check            NÃO IMPLEMENTADO: verificações automatizadas' \
+		'make smoke-train      NÃO IMPLEMENTADO: treino mínimo' \
+		'make train            NÃO IMPLEMENTADO: treino completo com GPU' \
+		'make evaluate         NÃO IMPLEMENTADO: avaliação final' \
+		'' \
+		'Alvos não implementados encerram com erro; não representam sucesso.'
+
+define not_implemented
+	@printf 'ERRO: make %s ainda não está implementado. Consulte README.md e as SPECs.\n' '$@' >&2
+	@exit 2
+endef
+
+data:
+	$(not_implemented)
+
+validate-data:
+	$(not_implemented)
+
+check:
+	$(not_implemented)
+
+smoke-train:
+	$(not_implemented)
+
+train:
+	$(not_implemented)
+
+evaluate:
+	$(not_implemented)

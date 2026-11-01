@@ -1,0 +1,18 @@
+[project]
+name = "chihuahua-muffin"
+version = "0.0.0"
+description = "Classificador didático de imagens de chihuahuas e muffins"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+# Dependências de ML são intencionalmente omitidas no bootstrap. TensorFlow,
+# Keras e a pilha GPU só serão declarados após verificação de compatibilidade.
+
+[tool.chihuahua_muffin.compatibility]
+status = "pending-environment-validation"
+python = "3.12"
+tensorflow = "pending"
+keras = "pending"
+cuda = "pending"
+cudnn = "pending"

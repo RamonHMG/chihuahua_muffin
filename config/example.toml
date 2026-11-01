@@ -1,0 +1,117 @@
+schema_version = "1.0"
+
+[project]
+seed = 42
+
+[dataset]
+handle = "samuelcortinhas/muffin-vs-chihuahua-image-classification"
+# Deve receber uma versão explícita somente após inspeção da fonte.
+version = ""
+source_url = "https://www.kaggle.com/datasets/samuelcortinhas/muffin-vs-chihuahua-image-classification"
+raw_dir = "data/raw"
+prepared_dir = "data/prepared"
+preserve_valid_official_splits = true
+
+[dataset.preferred_split]
+train = 0.70
+validation = 0.15
+test = 0.15
+stratified = true
+group_aware = true
+
+[classes]
+chihuahua = 0
+muffin = 1
+positive_class = "muffin"
+
+[preprocessing]
+height = 128
+width = 128
+channels = 3
+color_mode = "RGB"
+resize = "pad"
+interpolation = "bilinear"
+padding_color = "white"
+padding_rgb = [255, 255, 255]
+padding_normalized = [1.0, 1.0, 1.0]
+pixel_min = 0.0
+pixel_max = 1.0
+fix_exif_orientation = true
+rgba_background = "white"
+grayscale_to_rgb = "replicate"
+exclude_animated = true
+materialize_resized_images = false
+
+[duplicates]
+exact_hash = "sha256"
+# pHash é candidato; configuração e limiar dependem da auditoria e aprovação.
+perceptual_method = "phash"
+perceptual_method_status = "proposed_pending_audit"
+perceptual_candidate_hash_size = 8
+perceptual_candidate_highfreq_factor = 4
+perceptual_threshold = ""
+automatic_removal_by_perceptual_distance = false
+require_human_review_for_conflicting_labels = true
+
+[model]
+architecture = "small_cnn_v1"
+input_shape = [128, 128, 3]
+conv_filters = [16, 32, 64]
+conv_kernel = [3, 3]
+conv_padding = "same"
+conv_stride = 1
+activation = "relu"
+pool_size = [2, 2]
+pool_stride = 2
+use_bias = true
+global_average_pooling = true
+dense_units = 32
+output_units = 1
+output_activation = "sigmoid"
+expected_trainable_parameters = 25697
+transfer_learning = false
+
+[training]
+batch_size = 32
+optimizer = "adam"
+learning_rate = 0.001
+loss = "binary_crossentropy"
+max_epochs = 15
+selection_metric = "val_loss"
+classification_threshold = 0.5
+require_gpu = true
+deterministic_ops = true
+
+[training.early_stopping]
+monitor = "val_loss"
+patience = 3
+min_delta = 0.001
+restore_best_weights = true
+
+[training.checkpoint]
+monitor = "val_loss"
+mode = "min"
+save_best_only = true
+
+[augmentation]
+enabled = false
+scope_if_enabled_in_future = "train_only"
+
+[metrics]
+zero_division = 0.0
+positive_class = "muffin"
+
+[smoke_train]
+allow_cpu = false
+
+[artifacts]
+runs_dir = "artifacts/runs"
+dataset_manifests_are_local = true
+
+[compatibility]
+python = "3.12"
+# Permanecem vazios até a verificação do ambiente e da matriz oficial.
+tensorflow = ""
+keras = ""
+cuda = ""
+cudnn = ""
