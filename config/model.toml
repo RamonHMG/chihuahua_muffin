@@ -1,0 +1,86 @@
+schema_version = "1.0"
+
+[project]
+seed = 42
+
+[dataset]
+manifest = "data/prepared/dataset_manifest.json"
+index = "data/prepared/index.csv"
+quality_report = "data/prepared/quality_report.json"
+manifest_sha256 = "c9b3f6be3147d8b861eb35e763817155bc612697487289e15e3cfe36a0e15762"
+index_sha256 = "79213ec1780749dbd264f4a5752f2dc268e28acfc40b48b47691d127609ef74a"
+
+[model]
+architecture = "small_cnn_v1"
+input_shape = [128, 128, 3]
+conv_filters = [16, 32, 64]
+conv_kernel = [3, 3]
+conv_padding = "same"
+conv_stride = 1
+activation = "relu"
+pool_size = [2, 2]
+pool_stride = 2
+use_bias = true
+global_average_pooling = true
+dense_units = 32
+output_units = 1
+output_activation = "sigmoid"
+expected_trainable_parameters = 25697
+transfer_learning = false
+
+[training]
+batch_size = 32
+optimizer = "adam"
+learning_rate = 0.001
+loss = "binary_crossentropy"
+max_epochs = 15
+selection_metric = "val_loss"
+classification_threshold = 0.5
+require_gpu = true
+deterministic_ops = true
+
+[training.early_stopping]
+monitor = "val_loss"
+patience = 3
+min_delta = 0.001
+restore_best_weights = true
+
+[training.checkpoint]
+monitor = "val_loss"
+mode = "min"
+save_best_only = true
+
+[augmentation]
+enabled = false
+
+[metrics]
+zero_division = 0.0
+positive_class = "muffin"
+
+[baseline.validation]
+strategy = "always_chihuahua"
+accuracy = 0.5408450704225352
+macro_f1 = 0.3510054844606947
+
+[quality_target]
+comparison = "strictly_greater"
+accuracy = 0.5408450704225352
+macro_f1 = 0.3510054844606947
+approved = true
+
+[smoke_train]
+epochs = 1
+samples_per_class_per_split = 8
+allow_cpu_by_default = false
+
+[artifacts]
+runs_dir = "artifacts/runs"
+
+[compatibility]
+python = "3.12"
+tensorflow = "2.21.0"
+keras = "3.15.1"
+tensorflow_build_cuda = "12.5.1"
+tensorflow_build_cudnn = "9"
+official_tested_cuda = "12.5"
+official_tested_cudnn = "9.3"

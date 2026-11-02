@@ -1,6 +1,6 @@
 # SPEC 01 — Aquisição e preparação dos dados
 
-**Status:** Implementada no Incremento 8; aguardando revisão
+**Status:** Concluída, validada e aprovada para consumo pela SPEC 02
 
 **Criada em:** 2026-11-01
 
@@ -726,6 +726,10 @@ acima; `make check` não depende do dataset nem de internet.
 - decisão futura sobre publicação ou versionamento dos manifestos locais.
 
 ## Registro de decisões
+
+- **2026-11-01:** o responsável aprovou formalmente a conclusão técnica da
+  SPEC 01 e autorizou seu consumo pela SPEC 02, preservadas a ambiguidade de
+  licença e a limitação dos 719 pares perceptuais não revisados.
 
 - **2026-11-01:** split preferencial 70/15/15 e seed 42.
 - **2026-11-01:** partições oficiais válidas têm precedência sobre proporções

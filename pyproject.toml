@@ -7,7 +7,9 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "ImageHash==4.3.2",
     "kagglehub==1.0.3",
+    "matplotlib==3.10.7",
     "Pillow==13.0.0",
+    "tensorflow[and-cuda]==2.21.0",
 ]
 
 [project.optional-dependencies]
@@ -15,18 +17,17 @@ dev = [
     "pytest==9.2.0",
 ]
 
-# Dependências de ML são intencionalmente omitidas no bootstrap. TensorFlow,
-# Keras e a pilha GPU só serão declarados após verificação de compatibilidade.
-
 [tool.pytest.ini_options]
 addopts = ["--strict-config", "--strict-markers", "-ra"]
 pythonpath = ["src"]
 testpaths = ["tests"]
 
 [tool.chihuahua_muffin.compatibility]
-status = "pending-environment-validation"
+status = "gpu-smoke-validated-full-training-pending"
 python = "3.12"
-tensorflow = "pending"
-keras = "pending"
-cuda = "pending"
-cudnn = "pending"
+tensorflow = "2.21.0"
+keras = "3.15.1"
+tensorflow_build_cuda = "12.5.1"
+tensorflow_build_cudnn = "9"
+official_tested_cuda = "12.5"
+official_tested_cudnn = "9.3"

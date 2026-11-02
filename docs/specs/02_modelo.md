@@ -1,6 +1,6 @@
 # SPEC 02 — CNN, treinamento e avaliação
 
-**Status:** Draft
+**Status:** Implementação funcional; smoke em GPU concluído; treino completo e avaliação pendentes
 
 **Criada em:** 2026-11-01
 
@@ -198,7 +198,7 @@ modelo satisfatório.
 
 ## Artefatos e manifesto de execução
 
-Organização futura prevista, ainda inexistente:
+Organização implementada para cada run:
 
 ```text
 artifacts/runs/<run-id>/
@@ -257,6 +257,26 @@ O manifesto deve registrar no mínimo:
 - **AC-MODEL-012:** nenhuma alegação de qualidade é feita antes da meta
   preditiva ser aprovada e verificada.
 
+### Estado após os Incrementos 9 a 16
+
+| Critérios | Situação e evidência |
+|---|---|
+| `AC-MODEL-001`–`003A` | Atendidos por validação independente do contrato, testes de divergência, equivalência compartilhada do pré-processamento e CNN com 25.697 parâmetros. |
+| `AC-MODEL-004` | Atendido: `make train` falha antes de criar uma run quando o TensorFlow não expõe GPU; não existe fallback para CPU. |
+| `AC-MODEL-005` | Atendido: smoke sem opção falha; `ALLOW_CPU=1` fica registrado como autorização explícita no manifesto. |
+| `AC-MODEL-006`–`007` | Implementados e exercitados no smoke: checkpoint acompanha o menor `val_loss` absoluto, enquanto `min_delta` pertence somente ao early stopping. Validação integral aguarda treino completo. |
+| `AC-MODEL-008` | Gate atendido: um smoke foi recusado por `make evaluate` antes de abrir o teste. Avaliação final permanece não executada. |
+| `AC-MODEL-009`–`010` | Métricas, curvas, modelo e manifesto foram gerados pelo smoke. Matriz de confusão e manifesto finais de teste permanecem não executados. |
+| `AC-MODEL-011` | Dois smokes preservaram configuração, manifesto, IDs e `val_loss`; arquivos `.keras` tiveram digests distintos por metadados internos e essa diferença não foi ocultada. |
+| `AC-MODEL-012` | Meta aprovada, mas ainda não verificável no treino completo; nenhuma alegação de qualidade foi feita com o subconjunto do smoke. |
+
+Em 2026-11-02, o run local `20261102T124140Z-smoke-3c7450d5` também
+exercitou o fluxo com a RTX 5070 selecionada como `/GPU:0`. O manifesto
+registrou a operação de prova em GPU, `smoke_cpu_authorized = false`, conclusão
+do smoke e ausência de consulta ao teste. Essa evidência remove o bloqueio de
+dispositivo para iniciar o treino completo, mas não demonstra qualidade
+preditiva nem substitui o próprio treino.
+
 ## Casos de borda
 
 - GPU visível ao sistema, mas indisponível para TensorFlow;
@@ -272,12 +292,40 @@ O manifesto deve registrar no mínimo:
 
 ## Dependências e decisões pendentes
 
-- versão compatível de TensorFlow/Keras e requisitos CUDA/cuDNN;
-- disponibilidade da GPU RTX 5070 para o TensorFlow;
-- formato/versionamento final do manifesto de execução;
-- baseline medido e meta mínima de qualidade preditiva.
+- executar o treinamento completo GPU-only e verificar a meta na validação;
+- executar a avaliação final uma única vez sobre o run congelado elegível.
+
+TensorFlow 2.21.0/Keras 3.15.1, o manifesto de execução, o baseline e a meta
+didática já foram definidos e cobertos pelo harness. A GPU foi comprovada no
+smoke de 2026-11-02; treino completo, métricas de teste e conclusão integral
+desta SPEC permanecem explicitamente não executados.
 
 ## Registro de decisões
+
+- **2026-11-01:** a conclusão da SPEC 01 e o planejamento dos Incrementos 9 a
+  16 foram aprovados pelo responsável; permanece obrigatório preservar o
+  contrato, os IDs e os splits publicados.
+- **2026-11-01:** a meta didática inicial aprovada é superar estritamente, na
+  validação, a acurácia `0.540845` e o macro-F1 `0.351005` do classificador
+  que sempre prevê chihuahua. O teste não participa dessa verificação.
+- **2026-11-01:** TensorFlow 2.21.0 foi selecionado para Python 3.12 com base na
+  matriz oficial (CUDA 12.5 e cuDNN 9.3 testados). A instalação efetiva usa
+  Keras 3.15.1 e os pacotes CUDA distribuídos pelo extra oficial
+  `tensorflow[and-cuda]`; nenhuma biblioteca ou driver do sistema foi alterado.
+- **2026-11-01:** a GPU permaneceu indisponível ao TensorFlow devido ao estado
+  externo do driver/dispositivos (`nvidia-smi` falha e `/dev/nvidia0` não
+  existe). Treino completo deve falhar sem fallback para CPU.
+- **2026-11-02:** o run `20261102T124140Z-smoke-3c7450d5` concluiu o smoke com
+  a RTX 5070 selecionada como `/GPU:0` e a operação de prova posicionada na
+  GPU. O teste não foi consultado e o resultado não é evidência de qualidade;
+  treino completo e avaliação final continuam não executados.
+- **2026-11-01:** o `tf.data` chama a referência Pillow da SPEC 01 por uma
+  fronteira `tf.numpy_function`, fixa a forma `(128, 128, 3)` e testa igualdade
+  dos pixels para RGB, L, RGBA e EXIF. O custo de pré-processamento em CPU é
+  aceito neste dataset didático para evitar uma segunda definição divergente.
+- **2026-11-01:** runs usam diretórios exclusivos e manifesto de ciclo de vida.
+  Apenas `trained_frozen`, com digests atuais de configuração, dados e
+  checkpoint, pode abrir o teste; smokes são rejeitados antes dessa leitura.
 
 - **2026-11-01:** treinamento completo requer GPU; CPU no smoke somente por
   opção explícita.

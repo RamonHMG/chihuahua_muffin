@@ -5,19 +5,22 @@
 Este repositório desenvolverá, de forma didática e reproduzível, um classificador
 binário de imagens de chihuahuas e muffins com Python e TensorFlow/Keras.
 
-O projeto está em implementação incremental da SPEC 01. A presença de uma
-interface no `Makefile` não significa que preparação final, validação completa,
-treinamento ou avaliação já estejam implementados.
+A SPEC 01 está concluída, validada e aprovada. A SPEC 02 possui pipeline,
+modelo, smoke training, treino GPU-only e avaliação implementados. Treino
+completo e avaliação final permanecem não executados. Em 2026-11-02, um smoke
+foi concluído com a GPU efetivamente selecionada pelo TensorFlow; essa evidência
+não substitui o treino completo nem demonstra qualidade preditiva.
 
 ## Leitura obrigatória
 
 Antes de propor ou realizar uma implementação:
 
 1. Leia `README.md`.
-2. Leia `docs/specs/01_dataset.md`.
-3. Identifique o contrato de dados e seus critérios de aceitação.
-4. Leia `docs/specs/02_modelo.md` antes de trabalhar no modelo.
-5. Consulte `config/example.toml` apenas como exemplo; ele não é uma
+2. Leia `docs/historico_decisoes.md` para conhecer o estado e as decisões.
+3. Leia `docs/specs/01_dataset.md`.
+4. Identifique o contrato de dados e seus critérios de aceitação.
+5. Leia `docs/specs/02_modelo.md` antes de trabalhar no modelo.
+6. Consulte `config/example.toml` apenas como exemplo; ele não é uma
    configuração de execução validada.
 
 Se uma solicitação conflitar com uma SPEC, um contrato ou uma decisão

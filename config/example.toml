@@ -140,8 +140,10 @@ dataset_manifests_are_local = true
 
 [compatibility]
 python = "3.12"
-# Permanecem vazios até a verificação do ambiente e da matriz oficial.
-tensorflow = ""
-keras = ""
-cuda = ""
-cudnn = ""
+tensorflow = "2.21.0"
+keras = "3.15.1"
+tensorflow_build_cuda = "12.5.1"
+tensorflow_build_cudnn = "9"
+official_tested_cuda = "12.5"
+official_tested_cudnn = "9.3"
+gpu_runtime_status = "gpu_smoke_validated_full_training_pending"
