@@ -23,7 +23,7 @@ pythonpath = ["src"]
 testpaths = ["tests"]
 
 [tool.chihuahua_muffin.compatibility]
-status = "gpu-smoke-validated-full-training-pending"
+status = "gpu-training-and-final-evaluation-validated"
 python = "3.12"
 tensorflow = "2.21.0"
 keras = "3.15.1"

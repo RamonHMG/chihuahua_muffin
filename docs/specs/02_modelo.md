@@ -1,6 +1,6 @@
 # SPEC 02 — CNN, treinamento e avaliação
 
-**Status:** Implementação funcional; smoke em GPU concluído; treino completo e avaliação pendentes
+**Status:** Baseline treinado e avaliado; artefatos finais gerados
 
 **Criada em:** 2026-11-01
 
@@ -179,6 +179,11 @@ para tentar novas configurações até obter desempenho melhor.
 - **MODEL-028:** curvas de loss e métricas devem distinguir treino e validação.
   Em um manifesto futuro com Cenário B, somente curvas de treino poderiam ser
   geradas e deveriam ser identificadas sem sugerir validação.
+- **MODEL-029:** um diagnóstico visual pós-avaliação pode selecionar, de forma
+  determinística por `sample_id`, três verdadeiros positivos, três verdadeiros
+  negativos, três falsos positivos e três falsos negativos. O painel deve usar
+  as entradas pré-processadas vistas pelo modelo, registrar classe real, classe
+  prevista e `P(muffin)` e não pode ser usado para seleção ou tuning.
 
 ## Baseline e qualidade preditiva
 
@@ -207,6 +212,7 @@ artifacts/runs/<run-id>/
 ├── model.keras
 ├── metrics.json
 ├── confusion_matrix.png
+├── evaluation_panel.png
 └── training_curves.png
 ```
 
@@ -226,6 +232,7 @@ O manifesto deve registrar no mínimo:
 - checkpoint selecionado pelo menor `val_loss`, sempre com digest;
 - limiar efetivo;
 - métricas finais e caminhos/digests dos artefatos;
+- exemplos e política determinística do painel diagnóstico, quando gerado;
 - limitações e fontes conhecidas de não determinismo.
 
 ## Critérios de aceitação verificáveis
@@ -250,6 +257,9 @@ O manifesto deve registrar no mínimo:
   configuração e limiar.
 - **AC-MODEL-009:** métricas exigidas, matriz de confusão e curvas são geradas
   com rótulos coerentes.
+- **AC-MODEL-009A:** quando solicitado para um run avaliado com suporte
+  suficiente, o painel contém exatamente 3 VP, 3 VN, 3 FP e 3 FN, registra os
+  IDs selecionados e reproduz a matriz de confusão antes de ser publicado.
 - **AC-MODEL-010:** o manifesto contém ambiente, GPU, configuração, dados,
   seeds, checkpoint, limiar, métricas e limitações.
 - **AC-MODEL-011:** duas execuções preservam manifesto de dados e configuração;
@@ -257,18 +267,19 @@ O manifesto deve registrar no mínimo:
 - **AC-MODEL-012:** nenhuma alegação de qualidade é feita antes da meta
   preditiva ser aprovada e verificada.
 
-### Estado após os Incrementos 9 a 16
+### Estado do baseline treinado e avaliado
 
 | Critérios | Situação e evidência |
 |---|---|
 | `AC-MODEL-001`–`003A` | Atendidos por validação independente do contrato, testes de divergência, equivalência compartilhada do pré-processamento e CNN com 25.697 parâmetros. |
 | `AC-MODEL-004` | Atendido: `make train` falha antes de criar uma run quando o TensorFlow não expõe GPU; não existe fallback para CPU. |
 | `AC-MODEL-005` | Atendido: smoke sem opção falha; `ALLOW_CPU=1` fica registrado como autorização explícita no manifesto. |
-| `AC-MODEL-006`–`007` | Implementados e exercitados no smoke: checkpoint acompanha o menor `val_loss` absoluto, enquanto `min_delta` pertence somente ao early stopping. Validação integral aguarda treino completo. |
-| `AC-MODEL-008` | Gate atendido: um smoke foi recusado por `make evaluate` antes de abrir o teste. Avaliação final permanece não executada. |
-| `AC-MODEL-009`–`010` | Métricas, curvas, modelo e manifesto foram gerados pelo smoke. Matriz de confusão e manifesto finais de teste permanecem não executados. |
+| `AC-MODEL-006`–`007` | Atendidos no run completo: 15 épocas executadas e checkpoint da época 15 selecionado pelo menor `val_loss = 0.283202`. |
+| `AC-MODEL-008` | Atendido: o teste foi aberto somente no run `trained_frozen`, após congelar configuração, checkpoint e limiar. |
+| `AC-MODEL-009`–`010` | Atendidos: métricas, curvas, matriz de confusão, modelo e manifesto finais foram gerados e registrados com digests. |
+| `AC-MODEL-009A` | Atendido: `evaluation_panel.png` contém 3 VP, 3 VN, 3 FP e 3 FN selecionados deterministicamente e registrados no manifesto. |
 | `AC-MODEL-011` | Dois smokes preservaram configuração, manifesto, IDs e `val_loss`; arquivos `.keras` tiveram digests distintos por metadados internos e essa diferença não foi ocultada. |
-| `AC-MODEL-012` | Meta aprovada, mas ainda não verificável no treino completo; nenhuma alegação de qualidade foi feita com o subconjunto do smoke. |
+| `AC-MODEL-012` | Atendido na validação: acurácia `0.901408` e macro-F1 `0.900266` superaram estritamente o baseline aprovado. |
 
 Em 2026-11-02, o run local `20261102T124140Z-smoke-3c7450d5` também
 exercitou o fluxo com a RTX 5070 selecionada como `/GPU:0`. O manifesto
@@ -290,15 +301,16 @@ preditiva nem substitui o próprio treino.
 - configuração incompatível com o contrato de pré-processamento;
 - operação determinística indisponível para a combinação de hardware/software.
 
-## Dependências e decisões pendentes
+## Resultado final do baseline
 
-- executar o treinamento completo GPU-only e verificar a meta na validação;
-- executar a avaliação final uma única vez sobre o run congelado elegível.
+O run `20261102T131032Z-train-5e1f0311` executou as 15 épocas em GPU, congelou
+o checkpoint da época 15 e atingiu, na validação, acurácia `0.901408` e
+macro-F1 `0.900266`. A meta didática foi atendida antes da consulta ao teste.
 
-TensorFlow 2.21.0/Keras 3.15.1, o manifesto de execução, o baseline e a meta
-didática já foram definidos e cobertos pelo harness. A GPU foi comprovada no
-smoke de 2026-11-02; treino completo, métricas de teste e conclusão integral
-desta SPEC permanecem explicitamente não executados.
+Na avaliação final das 1.184 imagens de teste, obteve acurácia `0.880068`,
+macro-F1 `0.878511` e matriz de confusão `[[588, 52], [90, 454]]`. O resultado
+permanece sujeito à limitação dos 719 pares perceptuais não revisados da
+SPEC 01 e não deve ser usado retroativamente para ajustar o baseline.
 
 ## Registro de decisões
 
@@ -319,6 +331,15 @@ desta SPEC permanecem explicitamente não executados.
   a RTX 5070 selecionada como `/GPU:0` e a operação de prova posicionada na
   GPU. O teste não foi consultado e o resultado não é evidência de qualidade;
   treino completo e avaliação final continuam não executados.
+- **2026-11-02:** o run `20261102T131032Z-train-5e1f0311` concluiu 15 épocas
+  em GPU, atendeu a meta na validação e foi avaliado uma única vez no teste. O
+  checkpoint da época 15 produziu acurácia de teste `0.880068` e macro-F1
+  `0.878511`.
+- **2026-11-02:** foi aprovado um painel diagnóstico pós-avaliação com 3 VP,
+  3 VN, 3 FP e 3 FN. Para o run já avaliado, as probabilidades foram
+  recalculadas a partir do checkpoint congelado somente para visualização; a
+  publicação exigiu reproduzir a matriz de confusão final e não alterou
+  métricas, limiar ou decisões do modelo.
 - **2026-11-01:** o `tf.data` chama a referência Pillow da SPEC 01 por uma
   fronteira `tf.numpy_function`, fixa a forma `(128, 128, 3)` e testa igualdade
   dos pixels para RGB, L, RGBA e EXIF. O custo de pré-processamento em CPU é

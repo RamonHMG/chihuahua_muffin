@@ -6,10 +6,11 @@ Este repositório desenvolverá, de forma didática e reproduzível, um classifi
 binário de imagens de chihuahuas e muffins com Python e TensorFlow/Keras.
 
 A SPEC 01 está concluída, validada e aprovada. A SPEC 02 possui pipeline,
-modelo, smoke training, treino GPU-only e avaliação implementados. Treino
-completo e avaliação final permanecem não executados. Em 2026-11-02, um smoke
-foi concluído com a GPU efetivamente selecionada pelo TensorFlow; essa evidência
-não substitui o treino completo nem demonstra qualidade preditiva.
+modelo, smoke training, treino GPU-only e avaliação implementados. Em
+2026-11-02, o run `20261102T131032Z-train-5e1f0311` concluiu o treino completo
+em GPU, atendeu a meta na validação e foi avaliado no teste. Um painel com 3 VP,
+3 VN, 3 FP e 3 FN também foi gerado; esses resultados não autorizam tuning
+retroativo com o teste.
 
 ## Leitura obrigatória
 

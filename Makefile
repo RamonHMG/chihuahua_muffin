@@ -5,7 +5,7 @@ MODEL_ENV := PYTHONPATH=src TF_CPP_MIN_LOG_LEVEL=2 MPLCONFIGDIR=/tmp/chihuahua-m
 ALLOW_CPU ?= 0
 RUN_ID ?=
 
-.PHONY: help data validate-data check smoke-train train evaluate
+.PHONY: help data validate-data check smoke-train train evaluate evaluation-panel
 
 help:
 	@printf '%s\n' \
@@ -19,6 +19,7 @@ help:
 		'make smoke-train      operacional: treino mínimo; CPU exige ALLOW_CPU=1' \
 		'make train            operacional: treino completo; GPU obrigatória' \
 		'make evaluate         operacional: avalia RUN_ID=<run> congelado' \
+		'make evaluation-panel operacional: gera painel VP/VN/FP/FN do run avaliado' \
 		'' \
 		'Treino completo falha sem GPU TensorFlow utilizável; não há fallback.'
 
@@ -53,3 +54,8 @@ evaluate:
 	@test -x '$(PYTHON)' || { printf 'ERRO: interpretador não encontrado em %s.\n' '$(PYTHON)' >&2; exit 2; }
 	@test -n '$(RUN_ID)' || { printf 'ERRO: informe RUN_ID=<run treinado e congelado>.\n' >&2; exit 2; }
 	@$(MODEL_ENV) $(PYTHON) -m chihuahua_muffin.model.cli evaluate --run-id '$(RUN_ID)'
+
+evaluation-panel:
+	@test -x '$(PYTHON)' || { printf 'ERRO: interpretador não encontrado em %s.\n' '$(PYTHON)' >&2; exit 2; }
+	@test -n '$(RUN_ID)' || { printf 'ERRO: informe RUN_ID=<run avaliado>.\n' >&2; exit 2; }
+	@$(MODEL_ENV) $(PYTHON) -m chihuahua_muffin.model.cli panel --run-id '$(RUN_ID)'

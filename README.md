@@ -157,6 +157,16 @@ make evaluate RUN_ID=<RUN_ID>
 A avaliação aceita somente um run completo e congelado. Smokes, runs parciais
 ou artefatos divergentes são recusados antes da leitura do conjunto de teste.
 
+Para gerar, em um run já avaliado, o painel local com 3 VP, 3 VN, 3 FP e 3 FN:
+
+```bash
+make evaluation-panel RUN_ID=<RUN_ID>
+```
+
+O arquivo `evaluation_panel.png` mostra as entradas pré-processadas exatamente
+como o modelo as recebe. A seleção é determinística por `sample_id`, e o
+manifesto registra os exemplos, as probabilidades e o digest do painel.
+
 As decisões e a evolução do projeto estão em
 [Histórico e decisões do projeto](docs/historico_decisoes.md). Os contratos
 normativos permanecem na [SPEC 01](docs/specs/01_dataset.md) e na

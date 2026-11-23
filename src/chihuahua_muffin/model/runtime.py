@@ -23,9 +23,12 @@ from .config import DEFAULT_MODEL_CONFIG, ModelRunConfig, load_model_config
 from .contract import DatasetContract, load_dataset_contract
 from .device import DeviceSelection, environment_summary, select_device
 from .metrics import (
+    PANEL_CATEGORY_ORDER,
+    classification_panel_png,
     classification_metrics,
     save_confusion_matrix,
     save_training_curves,
+    select_classification_examples,
 )
 from .pipeline import balanced_smoke_subset, build_dataset
 
@@ -494,3 +497,149 @@ def evaluate_run(
         _write_json(manifest_path, manifest)
         raise
     return run_dir
+
+
+def create_evaluation_panel(
+    run_id: str,
+    project_root: str | Path = ".",
+    *,
+    examples_per_category: int = 3,
+) -> Path:
+    """Create an audited VP/VN/FP/FN panel for an already evaluated run."""
+
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", run_id):
+        raise RunError("run_id is unsafe")
+    root = Path(project_root).resolve()
+    run_dir = root / "artifacts/runs" / run_id
+    if run_dir.is_symlink() or not run_dir.is_dir():
+        raise RunError(f"run does not exist: {run_id}")
+    manifest_path = run_dir / "run_manifest.json"
+    manifest = _load_canonical_manifest(manifest_path)
+    evaluation = manifest.get("evaluation")
+    if (
+        manifest.get("run_id") != run_id
+        or manifest.get("status") != "evaluated"
+        or type(evaluation) is not dict
+        or evaluation.get("test_consulted") is not True
+    ):
+        raise RunError("only an evaluated run can produce the evaluation panel")
+
+    panel_path = run_dir / "evaluation_panel.png"
+    artifacts = manifest.get("artifacts")
+    if type(artifacts) is not dict:
+        raise RunError("run artifact registry is invalid")
+    existing_entry = artifacts.get("evaluation_panel")
+    replacing_registered_panel = False
+    if existing_entry is not None:
+        if (
+            type(existing_entry) is not dict
+            or existing_entry.get("path") != panel_path.name
+            or not panel_path.is_file()
+            or existing_entry.get("sha256") != sha256_file(panel_path)
+        ):
+            raise RunError("registered evaluation panel is invalid")
+        existing_metadata = evaluation.get("example_panel")
+        if (
+            type(existing_metadata) is dict
+            and existing_metadata.get("schema_version") == "1.0"
+        ):
+            return panel_path
+        replacing_registered_panel = True
+    if not replacing_registered_panel and (panel_path.exists() or panel_path.is_symlink()):
+        raise RunError("unregistered evaluation panel already exists")
+
+    config_path = run_dir / "config.toml"
+    model_path = run_dir / "model.keras"
+    metrics_path = run_dir / "metrics.json"
+    for key, path, description in (
+        ("config", config_path, "configuration"),
+        ("model", model_path, "checkpoint"),
+        ("metrics", metrics_path, "evaluation metrics"),
+    ):
+        entry = artifacts.get(key)
+        if type(entry) is not dict or entry.get("sha256") != sha256_file(path):
+            raise RunError(f"frozen {description} digest is invalid")
+
+    config = load_model_config(config_path)
+    contract = load_dataset_contract(root, config, verify_source_hashes=True)
+    if manifest.get("dataset", {}).get("manifest_sha256") != contract.manifest_sha256:
+        raise RunError("dataset manifest changed after evaluation")
+    test_samples = contract.for_split("test")
+    test_bundle = build_dataset(
+        test_samples,
+        batch_size=config.training.batch_size,
+        training=False,
+        seed=config.seed,
+    )
+    sample_ids_sha256 = sha256_hex(
+        "\n".join(sorted(test_bundle.sample_ids)).encode("utf-8")
+    )
+    if (
+        evaluation.get("test_sample_count") != len(test_samples)
+        or evaluation.get("test_sample_ids_sha256") != sample_ids_sha256
+        or evaluation.get("threshold") != config.training.threshold
+    ):
+        raise RunError("evaluated test identity or threshold changed")
+
+    configure_reproducibility(config.seed, deterministic_ops=True)
+    generation_device = select_device(require_gpu=False, allow_cpu=True)
+    model = tf.keras.models.load_model(model_path)
+    probabilities = _predict_probabilities(model, test_bundle.dataset)
+    recomputed = classification_metrics(
+        [sample.class_id for sample in test_samples],
+        probabilities,
+        threshold=config.training.threshold,
+    )
+    recorded_metrics = evaluation.get("metrics")
+    if (
+        type(recorded_metrics) is not dict
+        or recomputed["confusion_matrix"] != recorded_metrics.get("confusion_matrix")
+        or recomputed["sample_count"] != recorded_metrics.get("sample_count")
+    ):
+        raise RunError("recomputed classifications differ from the final evaluation")
+
+    try:
+        examples = select_classification_examples(
+            test_samples,
+            probabilities,
+            threshold=config.training.threshold,
+            examples_per_category=examples_per_category,
+        )
+    except ValueError as error:
+        raise RunError(str(error)) from error
+    _atomic_bytes(
+        panel_path,
+        classification_panel_png(
+            examples, examples_per_category=examples_per_category
+        ),
+    )
+    panel_metadata = {
+        "schema_version": "1.0",
+        "generated_at": _now(),
+        "source_split": "test",
+        "selection_policy": "sample_id_ascending_v1",
+        "examples_per_category": examples_per_category,
+        "input_representation": "spec_01_preprocessed_128x128_rgb",
+        "probability_source": "recomputed_from_frozen_checkpoint_for_visualization",
+        "classification_consistency_check": "confusion_matrix_matches_final_evaluation",
+        "generation_device": generation_device.as_dict(),
+        "used_for_selection_or_tuning": False,
+        "categories": {
+            category: [
+                example.manifest_payload()
+                for example in examples
+                if example.category == category
+            ]
+            for category in PANEL_CATEGORY_ORDER
+        },
+    }
+    evaluation["example_panel"] = panel_metadata
+    artifacts["evaluation_panel"] = _artifact_entry(panel_path, run_dir)
+    manifest["updated_at"] = _now()
+    try:
+        _write_json(manifest_path, manifest)
+    except Exception:
+        if not replacing_registered_panel:
+            panel_path.unlink(missing_ok=True)
+        raise
+    return panel_path

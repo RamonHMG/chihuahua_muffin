@@ -12,12 +12,12 @@ Atualizado em 2026-11-02:
 - a SPEC 01 está concluída, validada e aprovada para consumo;
 - o pipeline `tf.data`, a CNN, o ciclo de runs, o smoke training e a avaliação
   congelada da SPEC 02 estão implementados;
-- um smoke training foi concluído com a GPU efetivamente selecionada pelo
-  TensorFlow;
-- o treinamento completo e a avaliação final ainda não foram executados.
+- o treinamento completo foi concluído em GPU e atendeu a meta na validação;
+- a avaliação final foi executada no checkpoint congelado;
+- um painel auditável com 3 VP, 3 VN, 3 FP e 3 FN foi gerado para o run final.
 
-Essa distinção é intencional: o smoke comprova o caminho técnico mínimo de
-treinamento, mas não comprova qualidade preditiva nem generalização.
+Os resultados de teste encerram a avaliação deste baseline e não podem ser
+usados retroativamente para escolher uma nova configuração.
 
 ## Linha do tempo
 
@@ -114,6 +114,29 @@ A evidência local está em
 As métricas desse subconjunto não são evidência de qualidade e não substituem o
 treinamento completo.
 
+### 2026-11-02 — Treinamento completo, avaliação e painel diagnóstico
+
+O run `20261102T131032Z-train-5e1f0311` executou as 15 épocas em GPU e
+selecionou o checkpoint da época 15 pelo menor `val_loss`, igual a `0.283202`.
+Na validação, alcançou acurácia `0.901408` e macro-F1 `0.900266`, superando a
+meta didática aprovada antes da consulta ao teste.
+
+A avaliação final das 1.184 imagens de teste registrou:
+
+- acurácia `0.880068`;
+- precisão de muffin `0.897233`;
+- recall de muffin `0.834559`;
+- F1 de muffin `0.864762`;
+- macro-F1 `0.878511`;
+- matriz de confusão `[[588, 52], [90, 454]]`.
+
+Foi criado `evaluation_panel.png` com exatamente 3 VP, 3 VN, 3 FP e 3 FN. Os
+exemplos são escolhidos por ordem de `sample_id`, sem seleção manual, e mostram
+a entrada RGB 128 × 128 processada, classe real, classe prevista e
+`P(muffin)`. Como a avaliação já havia sido concluída, as probabilidades foram
+recalculadas somente para produzir o painel; a matriz de confusão teve de
+coincidir com a avaliação congelada antes da publicação do artefato.
+
 ## Decisões vigentes
 
 ### Dados e proveniência
@@ -166,15 +189,16 @@ treinamento completo.
   pode abrir o teste.
 - Registrar versões, dispositivo, configuração, seeds, dados, checkpoint,
   métricas, limitações e digests em cada run.
+- Permitir o painel pós-avaliação apenas como diagnóstico, com seleção
+  determinística e `used_for_selection_or_tuning = false`.
 
-## Próximas etapas aprovadas
+## Situação após o baseline
 
-1. Executar `make train` com a GPU reconhecida pelo TensorFlow.
-2. Verificar a meta didática exclusivamente na validação.
-3. Se o run terminar como `trained_frozen`, executar uma única avaliação final
-   com `make evaluate RUN_ID=<run>`.
-4. Interpretar as métricas de teste com a limitação dos 719 pares perceptuais
-   não revisados.
+Treino, verificação da meta, avaliação final e painel diagnóstico estão
+concluídos. Qualquer experimento futuro deve ser tratado como uma nova etapa e
+não pode usar os resultados deste teste para ajustar arquitetura,
+hiperparâmetros ou limiar. As métricas permanecem condicionadas à limitação dos
+719 pares perceptuais não revisados.
 
 O histórico detalhado de requisitos, critérios e decisões locais de cada etapa
 continua preservado nas seções “Registro de decisões” das respectivas SPECs.

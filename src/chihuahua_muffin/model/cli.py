@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .config import DEFAULT_MODEL_CONFIG, load_model_config
 from .device import DeviceUnavailableError, environment_summary, select_device
-from .runtime import RunError, evaluate_run, run_training
+from .runtime import RunError, create_evaluation_panel, evaluate_run, run_training
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -21,6 +21,10 @@ def _parser() -> argparse.ArgumentParser:
     commands.add_parser("train", help="run full GPU-only training")
     evaluate = commands.add_parser("evaluate", help="evaluate a frozen run on test")
     evaluate.add_argument("--run-id", required=True)
+    panel = commands.add_parser(
+        "panel", help="create a VP/VN/FP/FN panel for an evaluated run"
+    )
+    panel.add_argument("--run-id", required=True)
     commands.add_parser("diagnose", help="print TensorFlow device diagnostics")
     return parser
 
@@ -54,6 +58,10 @@ def main(argv: list[str] | None = None) -> int:
             path = evaluate_run(arguments.run_id, root)
             print(f"evaluated_run={path.name}")
             print(f"run_directory={path}")
+        elif arguments.command == "panel":
+            path = create_evaluation_panel(arguments.run_id, root)
+            print(f"panel_run={arguments.run_id}")
+            print(f"panel_path={path}")
         else:
             config = load_model_config(config_path)
             try:

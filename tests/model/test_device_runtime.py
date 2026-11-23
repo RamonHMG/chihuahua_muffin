@@ -4,7 +4,12 @@ import pytest
 
 from chihuahua_muffin.model import device
 from chihuahua_muffin.model.device import DeviceUnavailableError
-from chihuahua_muffin.model.runtime import BestEpochTracker, RunError, evaluate_run
+from chihuahua_muffin.model.runtime import (
+    BestEpochTracker,
+    RunError,
+    create_evaluation_panel,
+    evaluate_run,
+)
 
 
 def test_gpu_requirement_rejects_absence_without_cpu_fallback(monkeypatch) -> None:
@@ -36,3 +41,13 @@ def test_evaluation_rejects_unknown_run_before_consulting_test(tmp_path: Path) -
 def test_evaluation_rejects_unsafe_run_id(tmp_path: Path) -> None:
     with pytest.raises(RunError, match="unsafe"):
         evaluate_run("../escape", tmp_path)
+
+
+def test_evaluation_panel_rejects_unknown_run(tmp_path: Path) -> None:
+    with pytest.raises(RunError, match="does not exist"):
+        create_evaluation_panel("missing-run", tmp_path)
+
+
+def test_evaluation_panel_rejects_unsafe_run_id(tmp_path: Path) -> None:
+    with pytest.raises(RunError, match="unsafe"):
+        create_evaluation_panel("../escape", tmp_path)
